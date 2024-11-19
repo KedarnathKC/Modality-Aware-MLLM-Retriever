@@ -4,31 +4,39 @@ Common:
     Name: P@10, R@10, NDCG@10
     CachePath: metrics/
   DataSet:
-    Name: m-bier
+    Name: MBIER
+    QueryInstructionsPath: query_instructions.tsv
     Path: !ENV ${DATASET_PATH} # Update the dataset path here or add DATASET_PATH to environment.
-    Train: '' # Set <>% or <> exact number of batches to train
-    Test: '' # Set <>% or <> exact number of batches to test
+    Train: '24' # Set <>% or <> exact number of batches to train
+    Test: '24' # Set <>% or <> exact number of batches to test
+    Candidate: '' # Set <>% or <> exact number of batches for candidate
 
 FineTuning:
-  Action: False
+  Action: True
+  NegativeCandidates:
+    UseModalityNegatives: False
+    IncludeCrossDomainNegatives: True
+    CandidateSize: 5
+    Threshold: 45
   Model:
-    Name: # Name of the model
+    Name: openai/clip-vit-base-patch16
     CachePath : model/
     OutputPath: tuned-model/
     Index: -1
     LoadCheckPoint: False
     CheckPointIndex: -1
   Hyperparameters:
-    TrainBatchSize: 8
-    EvalBatchSize: 32
+    TrainBatchSize: 2
+    EvalBatchSize: 2
     Epochs: 1
+    Temperature: 5
     Lr: 0.00005
     WeightDecay: 0.3
     WarmUpRatio: 0.03
     Steps:
-      SaveSteps: 1000
-      EvalSteps: 1000
-      LoggingSteps: 100
+      SaveSteps: 50
+      EvalSteps: 50
+      LoggingSteps: 2
       GradientAccumulation: 1
 
 Evaluate:

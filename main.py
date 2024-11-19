@@ -3,8 +3,6 @@ from fineTuning import train
 from evaluation import evaluate
 import yaml
 import json
-loader = yaml.SafeLoader
-
 
 def start(configPath):
     with open(configPath, 'r') as file:
