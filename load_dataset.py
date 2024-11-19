@@ -17,7 +17,7 @@ def get_training_data(split_perc=''):
     print("Training data:")
     print(ds_train)
 
-    return ds_train
+    return ds_train.shuffle(seed=42)
 
 
 def get_validation_data(split_perc=''):
@@ -36,7 +36,7 @@ def get_validation_data(split_perc=''):
     print("Validation data:")
     print(ds_validate)
 
-    return ds_validate
+    return ds_validate.shuffle(seed=42)
 
 
 def get_candidate_dataset(split_perc=''):
