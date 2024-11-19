@@ -64,15 +64,20 @@ class ClipTrainer(Trainer):
         q_embeds = F.normalize(q_embeds, dim=-1)
         p_embeds = F.normalize(p_embeds, dim=-1)
 
-        positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True)
+        if enable_hard_neg:
+            positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True)
 
-        query = q_embeds.unsqueeze(1)
-        negative_logits = query @ n_embeds.transpose(-2, -1)
-        negative_logits = negative_logits.squeeze(1)
+            query = q_embeds.unsqueeze(1)
+            negative_logits = query @ n_embeds.transpose(-2, -1)
+            negative_logits = negative_logits.squeeze(1)
 
-        # First index in last dimension are the positive samples
-        logits = torch.cat([positive_logit, negative_logits], dim=1)
-        labels = torch.zeros(len(logits), dtype=torch.long, device=query.device)
+            # First index in last dimension are the positive samples
+            logits = torch.cat([positive_logit, negative_logits], dim=1)
+            labels = torch.zeros(len(logits), dtype=torch.long, device=query.device)
+
+        else:
+            logits = q_embeds @ p_embeds.transpose(-2, -1)
+            labels = torch.arange(len(q_embeds), device=q_embeds.device)
 
         loss = self.loss_function(logits / self.temperature, labels)
 

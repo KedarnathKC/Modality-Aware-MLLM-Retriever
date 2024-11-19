@@ -22,6 +22,7 @@ def get_training_data(split_perc=''):
 
 def get_validation_data(split_perc=''):
     ds_validate_tasks = []
+    if split_perc != '': split_perc = int(split_perc) // 2
     for task_n in ['task0*', 'task3*']:
         data_files_validate_task_n = {
             'val': ['query/val/' + file + task_n + '.jsonl' for file in files]
@@ -30,7 +31,7 @@ def get_validation_data(split_perc=''):
         ds_validate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
                                               cache_dir='dataset/val',
                                               data_files=data_files_validate_task_n,
-                                              name='query', split=f'val[:{int(split_perc)//2}]'))
+                                              name='query', split=f'val[:{split_perc}]'))
     ds_validate = concatenate_datasets(ds_validate_tasks)
     print("Validation data:")
     print(ds_validate)
@@ -48,7 +49,7 @@ def get_candidate_dataset(split_perc=''):
         'modality': Value('string'),
         'src_content': Value('string'),
     })
-
+    if split_perc != '': split_perc = int(split_perc) // 2
     for task_n in ['task0*', 'task3*']:
         data_files_validate_task_n = {
             'cand_pool': ['cand_pool/local/' + file + task_n + '.jsonl' for file in files]

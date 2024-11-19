@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 from tqdm import tqdm
 import random
 from PIL import Image
@@ -52,23 +53,14 @@ class MBEIRMainDataset(Dataset):
     def _load_cand_pool_as_dict(self, ds_candidate):
         cand_pool_dict = {}
         candidate_det = {idx: 0 for idx in range(10)}
-        # for cand_pool_entry in tqdm(ds_candidate, desc="Loading cand pool"):
-        #     did = cand_pool_entry.get("did")
-        #     cand_pool_dict[did] = cand_pool_entry
-        #     dataset_id = did.split(':')[0]
-        #     candidate_det[int(dataset_id)] += 1
-        #
-        # with open('cand_pool_dict.json', 'w') as f:
-        #     json.dump(cand_pool_dict, f)
-        #
-        # with open('candidate_det.json', 'w') as f:
-        #         json.dump(candidate_det, f)
 
-        with open('cand_pool_dict.json', 'r') as f:
-            cand_pool_dict = json.load(f)
+        #TODO:: Add np caching for faster processing
 
-        with open('candidate_det.json', 'r') as f:
-            candidate_det = json.load(f)
+        for cand_pool_entry in tqdm(ds_candidate, desc="Loading cand pool"):
+            did = cand_pool_entry.get("did")
+            cand_pool_dict[did] = cand_pool_entry
+            dataset_id = did.split(':')[0]
+            candidate_det[int(dataset_id)] += 1
 
         self.cand_pool = cand_pool_dict
         self.candidate_det = candidate_det
@@ -82,7 +74,10 @@ class MBEIRMainDataset(Dataset):
         return prompt
 
     def __len__(self):
-        return len(self.ds_train)
+        if self.is_train:
+            return len(self.ds_train)
+        else:
+            return len(self.ds_validate)
 
     def get_random_negative_candidate_dids(self, query_dataset_id, modality):
         negative_candidate_dids = []
@@ -93,7 +88,7 @@ class MBEIRMainDataset(Dataset):
                 neg_dataset_id = random.choice(choice_dataset_ids)
             else:
                 neg_dataset_id = query_dataset_id
-            neg_cand_did = neg_dataset_id + ':' + str(random.randint(0, self.candidate_det[neg_dataset_id]))
+            neg_cand_did = neg_dataset_id + ':' + str(random.randint(0, self.candidate_det[int(neg_dataset_id)]))
             neg_cand = self.cand_pool.get(neg_cand_did)
             if neg_cand.get("modality") == modality and neg_cand_did not in negative_candidate_dids:
                 negative_candidate_dids.append(neg_cand_did)
@@ -120,7 +115,10 @@ class MBEIRMainDataset(Dataset):
         return image
 
     def __getitem__(self, idx):
-        mbeir_entry = self.ds_train[idx]
+        if self.is_train:
+            mbeir_entry = self.ds_train[idx]
+        else:
+            mbeir_entry = self.ds_validate[idx]
 
         query_txt = mbeir_entry.get("query_txt") or ""
         query_img_path = mbeir_entry.get("query_img_path", None)
@@ -128,13 +126,10 @@ class MBEIRMainDataset(Dataset):
         qid = mbeir_entry.get("qid", None)
         query_dataset_id = qid.split(":")[0] if qid else None
 
-        # Randomly sample a positive example
         pos_cand_list = mbeir_entry.get("pos_cand_list", [])
 
         selected_pos_cand_did = random.choice(pos_cand_list)
         pos_cand = self.cand_pool.get(selected_pos_cand_did)
-        # Note: pos_cand_dataset_id should be the same as query_dataset_id but for OVEN and INFOSEEK it is not.
-        # pos_cand_dataset_id = selected_pos_cand_did.split(":")[0]
         pos_cand_modality = pos_cand.get("modality", None)
         pos_cand_txt = pos_cand.get("txt") or ""
         pos_cand_txt = format_string(pos_cand_txt)
@@ -159,24 +154,20 @@ class MBEIRMainDataset(Dataset):
         query = _prepare_data_dict(query_txt_with_prompt, query_img_path)
         instance = {"query": query}
 
-        if not self.is_train:
-            pass
+        pos_cand = _prepare_data_dict(
+            pos_cand_txt,
+            pos_cand.get("img_path", None),
+        )
+        instance.update({"pos_cand": pos_cand})
 
-        if self.is_train:
-            pos_cand = _prepare_data_dict(
-                pos_cand_txt,
-                pos_cand.get("img_path", None),
+        neg_cand_list = [
+            _prepare_data_dict(
+                neg_cand["txt"],
+                neg_cand.get("img_path", None),
             )
-            instance.update({"pos_cand": pos_cand})
-
-            neg_cand_list = [
-                _prepare_data_dict(
-                    neg_cand["txt"],
-                    neg_cand.get("img_path", None),
-                )
-                for neg_cand in selected_neg_cand_list
-            ]
-            if len(neg_cand_list) > 0:
-                instance.update({"neg_cand_list": neg_cand_list})
+            for neg_cand in selected_neg_cand_list
+        ]
+        if len(neg_cand_list) > 0:
+            instance.update({"neg_cand_list": neg_cand_list})
 
         return instance

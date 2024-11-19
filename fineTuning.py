@@ -18,7 +18,7 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         logging_dir=output_path + 'logs/',
         per_device_train_batch_size=hyperparameters.TrainBatchSize,
         per_device_eval_batch_size=hyperparameters.EvalBatchSize,
-        eval_strategy="no", # steps
+        eval_strategy="steps", #
         num_train_epochs=hyperparameters.Epochs,
         save_steps=hyperparameters.Steps.SaveSteps,
         eval_steps=hyperparameters.Steps.EvalSteps,
@@ -28,16 +28,14 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         warmup_ratio=hyperparameters.WarmUpRatio,
         weight_decay=hyperparameters.WeightDecay,
         save_total_limit=2,
-        metric_for_best_model='bleu',
-        greater_is_better=True,
+        metric_for_best_model='loss',
+        greater_is_better=False,
         optim=OptimizerNames.ADAMW_HF,
         remove_unused_columns=False,
         push_to_hub=False,
-        load_best_model_at_end=False, # True
+        load_best_model_at_end=True,
         seed=42,
-        half_precision_backend="auto",
         gradient_accumulation_steps=hyperparameters.Steps.GradientAccumulation,
-        use_cpu=True,
     )
 
 
@@ -54,10 +52,10 @@ def train(Args):
     else:
         model_path = Args.FineTuning.Model.Name
 
-    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.FineTuning.Model.CachePath)
+    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.FineTuning.Model.CachePath, attn_implementation='flash_attention_2')
 
     training_data = builder.get_train_dataset()
-    # testing_data = builder.get_eval_dataset()
+    testing_data = builder.get_eval_dataset()
 
     fine_tune_trainer = ClipTrainer(
         model=model,
@@ -66,8 +64,8 @@ def train(Args):
         # compute_metrics=compute_metrics,
         data_collator=builder.get_collate_fn(),
         train_dataset=training_data,
-        # eval_dataset=testing_data
+        eval_dataset=testing_data
     )
 
     start_training(Args, fine_tune_trainer, Args.FineTuning.Model.LoadCheckPoint, model_path, output_path,
-                   Args.FineTuning.Model.OutputPath, training_data)
+                   Args.FineTuning.Model.OutputPath, testing_data)

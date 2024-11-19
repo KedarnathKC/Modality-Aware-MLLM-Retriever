@@ -34,22 +34,6 @@ class Builder:
             }
             instance_keys = ["query"]
 
-            # qid_list, task_id_list = [], []
-            #
-            # for instance in batch:
-            #     qid = instance.pop("qid", None)
-            #     task_id = instance.pop("task_id", None)
-            #     if qid is not None:
-            #         qid_list.append(qid)
-            #     if task_id is not None:
-            #         task_id_list.append(task_id)
-
-            # p_did_list = []
-            # for instance in batch:
-            #     p_did = instance.pop("p_did", None)
-            #     if p_did is not None:
-            #         p_did_list.append(p_did)
-
             index_mapping.update({"pos_cand": [[] for _ in range(len(batch))]})
             instance_keys.extend(["pos_cand"])
 
@@ -90,10 +74,8 @@ class Builder:
                 "index_mapping": index_mapping,
             }
 
-            # if qid_list:
-            #     processed_batch.update({"qid_list": qid_list})
-            # if task_id_list:
-            #     processed_batch.update({"task_id_list": task_id_list})
+            if "neg_cand_list" not in instance_keys:
+                processed_batch['return_loss'] = True
 
             return processed_batch
 
