@@ -10,7 +10,7 @@ def get_training_data(split_perc=''):
     }
 
     ds_train = load_dataset("TIGER-Lab/M-BEIR",
-                            cache_dir='dataset/train',
+                            cache_dir='../dataset/train',
                             data_files=data_files_train,
                             name='query', split=f'train[:{split_perc}]')
 
@@ -29,7 +29,7 @@ def get_validation_data(split_perc=''):
         }
 
         ds_validate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
-                                              cache_dir='dataset/val',
+                                              cache_dir='../dataset/val',
                                               data_files=data_files_validate_task_n,
                                               name='query', split=f'val[:{split_perc}]'))
     ds_validate = concatenate_datasets(ds_validate_tasks)
@@ -54,7 +54,7 @@ def get_candidate_dataset(split_perc=''):
     for split in ['*val*', '*train*']:
 
         ds_candidate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
-                                               cache_dir='dataset/cand',
+                                               cache_dir='../dataset/cand',
                                                features=features,
                                                data_files={'cand_pool': [f'cand_pool/global/{split}.jsonl']},
                                                name='cand_pool', split=f'cand_pool[:{split_perc}]'))

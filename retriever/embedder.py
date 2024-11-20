@@ -1,0 +1,1 @@
+## TODO:: Create embeddings of the val query and candidates

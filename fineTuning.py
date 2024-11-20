@@ -1,7 +1,7 @@
 from transformers import TrainingArguments, CLIPModel
 from clipTrainer import ClipTrainer
 from utils.pathUtils import prepare_output_path, get_checkpoint_path
-from prepare_dataset import Builder
+from datasetUtils.prepare_dataset import Builder
 from utils.commonUtils import start_training
 from transformers.training_args import OptimizerNames
 import warnings
