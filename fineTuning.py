@@ -36,6 +36,7 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         load_best_model_at_end=True,
         seed=42,
         gradient_accumulation_steps=hyperparameters.Steps.GradientAccumulation,
+        label_names=['modalities'],
     )
 
 
@@ -56,12 +57,13 @@ def train(Args):
 
     training_data = builder.get_train_dataset()
     testing_data = builder.get_eval_dataset()
+    compute_metrics = builder.get_compute()
 
     fine_tune_trainer = ClipTrainer(
         model=model,
         configArgs=Args,
         args=fine_tune_args,
-        # compute_metrics=compute_metrics,
+        compute_metrics=compute_metrics,
         data_collator=builder.get_collate_fn(),
         train_dataset=training_data,
         eval_dataset=testing_data
