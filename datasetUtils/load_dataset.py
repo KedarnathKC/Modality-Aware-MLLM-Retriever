@@ -1,4 +1,4 @@
-from datasets import load_dataset, load_dataset_builder, concatenate_datasets, Features, Value
+from datasets import load_dataset, concatenate_datasets, Features, Value
 
 files = ['*visualnews*','*fashion200k*','*mscoco*']
 
@@ -10,7 +10,7 @@ def get_training_data(split_perc=''):
     }
 
     ds_train = load_dataset("TIGER-Lab/M-BEIR",
-                            cache_dir='../dataset/train',
+                            cache_dir='dataset/train',
                             data_files=data_files_train,
                             name='query', split=f'train[:{split_perc}]')
 
@@ -29,12 +29,20 @@ def get_validation_data(split_perc=''):
         }
 
         ds_validate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
-                                              cache_dir='../dataset/val',
+                                              cache_dir='dataset/val',
                                               data_files=data_files_validate_task_n,
                                               name='query', split=f'val[:{split_perc}]'))
     ds_validate = concatenate_datasets(ds_validate_tasks)
     print("Validation data:")
     print(ds_validate)
+
+    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(8))
+    #
+    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(8))
+    #
+    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(8))
+    #
+    # ds_validate = concatenate_datasets([ds_validate_part1, ds_validate_part2, ds_validate_part3])
 
     return ds_validate.shuffle(seed=42)
 
@@ -54,7 +62,7 @@ def get_candidate_dataset(split_perc=''):
     for split in ['*val*', '*train*']:
 
         ds_candidate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
-                                               cache_dir='../dataset/cand',
+                                               cache_dir='dataset/cand',
                                                features=features,
                                                data_files={'cand_pool': [f'cand_pool/global/{split}.jsonl']},
                                                name='cand_pool', split=f'cand_pool[:{split_perc}]'))
@@ -87,9 +95,13 @@ def validate(ds_train, ds_validate, ds_candidate):
     for pos_cand in ds_train['pos_cand_list']:
         train_cand_dids += pos_cand
 
+    print(f"Total Training candidates: {len(train_cand_dids)}")
+
     val_cand_dids = []
     for pos_cand in ds_validate['pos_cand_list']:
         val_cand_dids += pos_cand
+
+    print(f"Total Validation candidates: {len(val_cand_dids)}")
 
     candidate_dids = ds_candidate['did']
 
@@ -99,7 +111,7 @@ def validate(ds_train, ds_validate, ds_candidate):
     diff = set(val_cand_dids).difference(set(candidate_dids))
     print(f"Missing validation candidates: {len(diff)}")
 
-    print(set(candidate_dids) == set(train_cand_dids).union(set(val_cand_dids)))
+    print(f"Confirm candidate has all dids :{set(candidate_dids) == set(train_cand_dids).union(set(val_cand_dids))}")
 
 
 if __name__ == '__main__':

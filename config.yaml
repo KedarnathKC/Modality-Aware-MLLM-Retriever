@@ -12,7 +12,7 @@ Common:
     Candidate: '' # Set <>% or <> exact number of batches for candidate
 
 FineTuning:
-  Action: True
+  Action: False
   NegativeCandidates:
     UseModalityNegatives: False
     IncludeCrossDomainNegatives: False
@@ -31,7 +31,7 @@ FineTuning:
     Epochs: 10
     Temperature: 0.1
     Lr: 0.00005
-    WeightDecay: 0.3
+    WeightDecay: 0.2
     WarmUpRatio: 0.01
     Steps:
       SaveSteps: 500
@@ -43,7 +43,7 @@ Evaluate:
   Action: False
   Model:
     UseLocal: False
-    Name: # Name of the model
+    Name: openai/clip-vit-large-patch14 # Name of the model
     CachePath: model/
     Index: -1
     LoadCheckPoint: False

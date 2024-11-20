@@ -1,7 +1,7 @@
 import yaml
 import re
 
-IGNORE_KEYS = ['cls_logits', 'distillation_logits', 'hidden_states', 'attentions', 'attributions', 'encoder_last_hidden_state']
+IGNORE_KEYS = []
 
 
 def represent_bool(self, data):
@@ -41,4 +41,12 @@ def start_evaluation(trainer, testing_data):
     metrics = trainer.evaluate(testing_data, ignore_keys=IGNORE_KEYS)
     trainer.log_metrics("eval", metrics)
     trainer.save_metrics("eval", metrics)
+
+
+def start_prediction(trainer, testing_data):
+
+    outputs, _, metrics = trainer.predict(testing_data, ignore_keys=IGNORE_KEYS)
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
+    return outputs[1:]
 

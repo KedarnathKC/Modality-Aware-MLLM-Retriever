@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from transformers import CLIPProcessor
-from mbier_dataset import MBEIRMainDataset
+from datasetUtils.mbier_dataset import MBEIRMainDataset
 
 
 def _get_padded_text_with_mask(txt):
@@ -13,14 +13,15 @@ def _get_padded_image_with_mask(img):
 
 
 class Builder:
-    def __init__(self, config):
+    def __init__(self, config, onlyPrediction=False):
         self.config = config
+        self.onlyPrediction = onlyPrediction
 
     def get_train_dataset(self):
         return MBEIRMainDataset(self.config)
 
     def get_eval_dataset(self):
-        return MBEIRMainDataset(self.config, is_train=False)
+        return MBEIRMainDataset(self.config, is_train=False, onlyPrediction=self.onlyPrediction)
 
     def get_collate_fn(self):
 
@@ -38,16 +39,34 @@ class Builder:
             index_mapping.update({"pos_cand": [[] for _ in range(len(batch))]})
             instance_keys.extend(["pos_cand"])
 
+            qid_list, did_list, remaining_did_list = [], [], []
+
             if "neg_cand_list" in batch[0]:
                 index_mapping.update({"neg_cand_list": [[] for _ in range(len(batch))]})
                 instance_keys.extend(["neg_cand_list"])
+
+            if "remaining_pos_cand_list" in batch[0]:
+                index_mapping.update({"remaining_pos_cand_list": [[] for _ in range(len(batch))]})
+                instance_keys.extend(["remaining_pos_cand_list"])
+
+            if self.onlyPrediction:
+                for instance in batch:
+                    qid = instance.pop("qid", None)
+                    did = instance.pop("did", None)
+                    remaining_did = instance.pop("remaining_did", None)
+                    if qid is not None:
+                        qid_list.append(qid)
+                    if did is not None:
+                        did_list.append(did)
+                    if remaining_did is not None:
+                        remaining_did_list.extend(remaining_did)
 
             # Generate Index Mapping
             counter = 0
             for inst_idx, instance in enumerate(batch):
                 for instance_key in instance_keys:
-                    items = [instance[instance_key]] if instance_key != "neg_cand_list" else instance[
-                        instance_key]  # list
+                    items = [instance[instance_key]] if instance_key not in ["neg_cand_list","remaining_pos_cand_list"]\
+                        else instance[instance_key]  # list
                     for item in items:
                         txt = item["txt"]
                         img = item["img"]
@@ -75,6 +94,12 @@ class Builder:
                 "index_mapping": index_mapping,
             }
 
+            if self.onlyPrediction:
+                processed_batch.update({"qid_list": torch.tensor(qid_list)})
+                processed_batch.update({"did_list": torch.tensor(did_list)})
+                if len(remaining_did_list) > 0:
+                    processed_batch.update({"remaining_did_list": torch.tensor(remaining_did_list)})
+
             if "neg_cand_list" not in instance_keys:
                 processed_batch['return_loss'] = True
                 processed_batch['modalities'] = torch.tensor([modality["modality"] for modality in batch]).unsqueeze(0)
@@ -85,11 +110,18 @@ class Builder:
 
     def get_compute(self):
 
-        bs = self.config.FineTuning.Hyperparameters.EvalBatchSize
+        if self.onlyPrediction:
+            bs = self.config.Evaluate.Hyperparameters.EvalBatchSize
+        else:
+            bs = self.config.FineTuning.Hyperparameters.EvalBatchSize
 
         def compute(p):
 
-            predictions = p.predictions
+            if self.onlyPrediction:
+                predictions = p.predictions[0]
+            else:
+                predictions = p.predictions
+
             modalities = p.label_ids
 
             ground_truth = np.arange(bs)

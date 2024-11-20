@@ -6,8 +6,10 @@ import random
 from PIL import Image
 from torch.utils.data import Dataset
 from transformers import CLIPProcessor
-from load_dataset import get_training_data, get_candidate_dataset, get_validation_data
+from datasetUtils.load_dataset import get_training_data, get_candidate_dataset, get_validation_data
 
+DATASET_CAN_NUM_UPPER_BOUND = 10000000  # Maximum number of candidates per dataset
+DATASET_QUERY_NUM_UPPER_BOUND = 500000  # Maximum number of queries per dataset
 
 def format_string(s):
     """Strip the string, remove carriage returns, and capitalize the first character."""
@@ -22,8 +24,30 @@ def parse_modality(modality):
     return 1 if modality == "image" else 0
 
 
+def hash_qid(qid):
+    dataset_id, data_within_id = map(int, qid.split(":"))
+    return dataset_id * DATASET_QUERY_NUM_UPPER_BOUND + data_within_id
+
+
+def unhash_qid(hashed_qid):
+    dataset_id = hashed_qid // DATASET_QUERY_NUM_UPPER_BOUND
+    data_within_id = hashed_qid % DATASET_QUERY_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
+def hash_did(did):
+    dataset_id, data_within_id = map(int, did.split(":"))
+    return dataset_id * DATASET_CAN_NUM_UPPER_BOUND + data_within_id
+
+
+def unhash_did(hashed_did):
+    dataset_id = hashed_did // DATASET_CAN_NUM_UPPER_BOUND
+    data_within_id = hashed_did % DATASET_CAN_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
 class MBEIRMainDataset(Dataset):
-    def __init__(self, config, is_train=True):
+    def __init__(self, config, is_train=True, onlyPrediction=False):
         super(MBEIRMainDataset, self).__init__()
 
         prompts_dict = {}
@@ -43,6 +67,7 @@ class MBEIRMainDataset(Dataset):
         Model = config.FineTuning.Model
         DataSet = config.Common.DataSet
         self.is_train = is_train
+        self.onlyPrediction = onlyPrediction
         self.feature_processor = CLIPProcessor.from_pretrained(Model.Name, cache_dir=Model.CachePath)
         if is_train:
             self.ds_train, ds_candidate = get_training_data(DataSet.Train), get_candidate_dataset(DataSet.Candidate)
@@ -108,8 +133,8 @@ class MBEIRMainDataset(Dataset):
                 neg_dataset_id = query_dataset_id
             doc_id_range = self.candidate_det[neg_dataset_id]
             neg_cand_did = neg_dataset_id + ':' + str(random.randint(doc_id_range[1], doc_id_range[2]))
-            neg_cand = self.cand_pool.get(neg_cand_did)
-            if neg_cand.get("modality") == modality and neg_cand_did not in negative_candidate_dids:
+            neg_cand = self.cand_pool.get(neg_cand_did, None)
+            if neg_cand and neg_cand.get("modality") == modality and neg_cand_did not in negative_candidate_dids:
                 negative_candidate_dids.append(neg_cand_did)
                 tracker += 1
 
@@ -132,6 +157,10 @@ class MBEIRMainDataset(Dataset):
         image = Image.open(self.config.Common.DataSet.Path + '/' + query_img_path).convert("RGB")
         image = self.feature_processor(images=image, return_tensors='pt')["pixel_values"].squeeze(0)
         return image
+
+    def _prepare_data_dict(self, txt, img_path):
+        img = self._load_and_preprocess_image(img_path)
+        return {"txt": txt, "img": img}
 
     def __getitem__(self, idx):
         if self.is_train:
@@ -166,28 +195,46 @@ class MBEIRMainDataset(Dataset):
                 neg_cand["txt"] = neg_cand_txt
                 selected_neg_cand_list.append(neg_cand)
 
-        def _prepare_data_dict(txt, img_path):
-            img = self._load_and_preprocess_image(img_path)
-            return {"txt": txt, "img": img}
-
-        query = _prepare_data_dict(query_txt_with_prompt, query_img_path)
+        query = self._prepare_data_dict(query_txt_with_prompt, query_img_path)
         instance = {"query": query}
 
-        pos_cand = _prepare_data_dict(
+        pos_cand = self._prepare_data_dict(
             pos_cand_txt,
             pos_cand.get("img_path", None),
         )
         instance.update({"pos_cand": pos_cand})
 
-        neg_cand_list = [
-            _prepare_data_dict(
-                neg_cand["txt"],
-                neg_cand.get("img_path", None),
-            )
-            for neg_cand in selected_neg_cand_list
-        ]
-        if len(neg_cand_list) > 0:
-            instance.update({"neg_cand_list": neg_cand_list})
+        if not self.onlyPrediction:
+
+            neg_cand_list = [
+                self._prepare_data_dict(
+                    neg_cand["txt"],
+                    neg_cand.get("img_path", None),
+                )
+                for neg_cand in selected_neg_cand_list
+            ]
+            if len(neg_cand_list) > 0:
+                instance.update({"neg_cand_list": neg_cand_list})
+
+        else:
+            instance.update({"qid": hash_qid(qid)})
+            instance.update({"did": hash_did(selected_pos_cand_did)})
+            remaining_pos_cands = []
+            remaining_pos_cand_list = pos_cand_list[:]
+            remaining_pos_cand_list.remove(selected_pos_cand_did)
+            if len(remaining_pos_cand_list) > 0:
+                for remaining_pos_cand_did in remaining_pos_cand_list:
+                    rem_pos_cand = self.cand_pool.get(remaining_pos_cand_did)
+                    rem_pos_cand_txt = rem_pos_cand.get("txt") or ""
+                    rem_pos_cand_txt = format_string(rem_pos_cand_txt)
+                    rem_pos_cand = self._prepare_data_dict(
+                        rem_pos_cand_txt,
+                        rem_pos_cand.get("img_path", None),
+                    )
+                    remaining_pos_cands.append(rem_pos_cand)
+
+            instance.update({"remaining_pos_cand_list": remaining_pos_cands})
+            instance.update({"remaining_did": [hash_did(remaining_did) for remaining_did in remaining_pos_cand_list]})
 
         if not self.is_train:
             instance["modality"] = parse_modality(pos_cand_modality)
