@@ -99,6 +99,8 @@ def validate(ds_train, ds_validate, ds_candidate):
     diff = set(val_cand_dids).difference(set(candidate_dids))
     print(f"Missing validation candidates: {len(diff)}")
 
+    print(set(candidate_dids) == set(train_cand_dids).union(set(val_cand_dids)))
+
 
 if __name__ == '__main__':
     ds_train, ds_validate, ds_candidate = get_dataset()
