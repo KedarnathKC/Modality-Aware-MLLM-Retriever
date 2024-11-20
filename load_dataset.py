@@ -50,17 +50,20 @@ def get_candidate_dataset(split_perc=''):
         'src_content': Value('string'),
     })
     if split_perc != '': split_perc = int(split_perc) // 2
-    for task_n in ['task0*', 'task3*']:
-        data_files_validate_task_n = {
-            'cand_pool': ['cand_pool/local/' + file + task_n + '.jsonl' for file in files]
-        }
+
+    for split in ['*val*', '*train*']:
 
         ds_candidate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
                                                cache_dir='dataset/cand',
-                                               data_files=data_files_validate_task_n,
                                                features=features,
+                                               data_files={'cand_pool': [f'cand_pool/global/{split}.jsonl']},
                                                name='cand_pool', split=f'cand_pool[:{split_perc}]'))
+
     ds_candidate = concatenate_datasets(ds_candidate_tasks)
+
+    dataset_ids = ['0', '1', '9']
+    ds_candidate = ds_candidate.filter(lambda candidate: candidate['did'].split(':')[0] in dataset_ids)
+
     print("Candidate data:")
     print(ds_candidate)
 
@@ -78,5 +81,28 @@ def get_dataset(train_perc='', valid_perc='', cand_perc=''):
     return ds_train, ds_validate, ds_candidate
 
 
+def validate(ds_train, ds_validate, ds_candidate):
+
+    train_cand_dids = []
+    for pos_cand in ds_train['pos_cand_list']:
+        train_cand_dids += pos_cand
+
+    val_cand_dids = []
+    for pos_cand in ds_validate['pos_cand_list']:
+        val_cand_dids += pos_cand
+
+    candidate_dids = ds_candidate['did']
+
+    diff = set(train_cand_dids).difference(set(candidate_dids))
+    print(f"Missing training candidates: {len(diff)}")
+
+    diff = set(val_cand_dids).difference(set(candidate_dids))
+    print(f"Missing validation candidates: {len(diff)}")
+
+
 if __name__ == '__main__':
     ds_train, ds_validate, ds_candidate = get_dataset()
+
+    validate(ds_train, ds_validate, ds_candidate)
+
+
