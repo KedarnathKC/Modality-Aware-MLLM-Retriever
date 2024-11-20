@@ -19,7 +19,7 @@ FineTuning:
     CandidateSize: 50
     Threshold: 45
   Model:
-    Name: openai/clip-vit-large-patch16
+    Name: openai/clip-vit-large-patch14
     CachePath : model/
     OutputPath: tuned-model/
     Index: -1

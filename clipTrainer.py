@@ -17,11 +17,9 @@ class ClipTrainer(Trainer):
 
     def _encode_text(self, text_tensor, txt_attention_mask):
         return self.model.get_text_features(text_tensor, txt_attention_mask)
-        # return torch.rand((text_tensor.size()[0], 512), device='mps')
 
     def _encode_image(self, image_tensor):
         return self.model.get_image_features(image_tensor)
-        # return torch.rand((image_tensor.size()[0], 512), device='mps')
 
     def _fuse_embeddings(self, img_emb, txt_emb):
         fused_emb = img_emb + txt_emb
@@ -81,4 +79,4 @@ class ClipTrainer(Trainer):
 
         loss = self.loss_function(logits / self.temperature, labels)
 
-        return (loss, logits) if return_outputs else loss
+        return (loss, {"predictions":logits.unsqueeze(0)}) if return_outputs else loss

@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from transformers import CLIPProcessor
 from mbier_dataset import MBEIRMainDataset
 
@@ -76,10 +77,37 @@ class Builder:
 
             if "neg_cand_list" not in instance_keys:
                 processed_batch['return_loss'] = True
+                processed_batch['modalities'] = torch.tensor([modality["modality"] for modality in batch]).unsqueeze(0)
 
             return processed_batch
 
         return mbeir_collator
+
+    def get_compute(self):
+
+        bs = self.config.FineTuning.Hyperparameters.EvalBatchSize
+
+        def compute(p):
+
+            predictions = p.predictions
+            modalities = p.label_ids
+
+            ground_truth = np.arange(bs)
+            # Find the index with maximum value
+            max_candidate_idx = np.argmax(predictions, axis=2)
+            # Calculate accuracy based on the selected candidate index
+            N = predictions.shape[0]
+            accuracy = np.mean(np.repeat([ground_truth], N, axis=0) == max_candidate_idx)
+
+            # Calculate modality accuracy based on the selected candidate index
+            modality_accuracy = np.mean(modalities == modalities[np.arange(N)[:, None], max_candidate_idx])
+
+            return {
+                "accuracy": accuracy,
+                "modality_accuracy": modality_accuracy
+            }
+
+        return compute
 
 
 

@@ -6,7 +6,7 @@ import random
 from PIL import Image
 from torch.utils.data import Dataset
 from transformers import CLIPProcessor
-from load_dataset import get_dataset, get_candidate_dataset, get_validation_data
+from load_dataset import get_training_data, get_candidate_dataset, get_validation_data
 
 
 def format_string(s):
@@ -16,6 +16,10 @@ def format_string(s):
         s = s[0].upper() + s[1:]  # Capitalize the first character
         s = s + "." if s[-1] not in [".", "?", "!"] else s  # Add a period at the end of the string
     return s
+
+
+def parse_modality(modality):
+    return 1 if modality == "image" else 0
 
 
 class MBEIRMainDataset(Dataset):
@@ -41,26 +45,40 @@ class MBEIRMainDataset(Dataset):
         self.is_train = is_train
         self.feature_processor = CLIPProcessor.from_pretrained(Model.Name, cache_dir=Model.CachePath)
         if is_train:
-            self.ds_train, self.ds_validate, ds_candidate = \
-                get_dataset(DataSet.Train, DataSet.Test, DataSet.Candidate)
+            self.ds_train, ds_candidate = get_training_data(DataSet.Train), get_candidate_dataset(DataSet.Candidate)
         else:
-            self.ds_train = None
-            self.ds_validate = get_validation_data(DataSet.Test)
-            ds_candidate = get_candidate_dataset(DataSet.Candidate)
+            self.ds_validate, ds_candidate = get_validation_data(DataSet.Test), get_candidate_dataset(DataSet.Candidate)
 
         self._load_cand_pool_as_dict(ds_candidate)
 
     def _load_cand_pool_as_dict(self, ds_candidate):
         cand_pool_dict = {}
-        candidate_det = {idx: 0 for idx in range(10)}
+        candidate_det = {f'{idx}': (0, 1e5, -1e5) for idx in range(10)}
 
-        #TODO:: Add np caching for faster processing
+        if os.path.exists(f".cache_cand_dict.json"):
 
-        for cand_pool_entry in tqdm(ds_candidate, desc="Loading cand pool"):
-            did = cand_pool_entry.get("did")
-            cand_pool_dict[did] = cand_pool_entry
-            dataset_id = did.split(':')[0]
-            candidate_det[int(dataset_id)] += 1
+            with open(f'.cache_cand_dict.json', 'r') as f:
+                cand_pool_dict = json.load(f)
+
+            with open(f'.cache_cand_count.json', 'r') as f:
+                candidate_det = json.load(f)
+
+        else:
+            for cand_pool_entry in tqdm(ds_candidate, desc="Loading cand pool"):
+                did = cand_pool_entry.get("did")
+                cand_pool_dict[did] = cand_pool_entry
+                det = did.split(':')
+                dataset_id = det[0]
+                doc_id = int(det[1])
+                candidate_det[dataset_id] = (candidate_det[dataset_id][0] + 1,
+                                             min(candidate_det[dataset_id][1], doc_id),
+                                             max(candidate_det[dataset_id][2], doc_id))
+
+            with open(f'.cache_cand_dict.json', 'w') as f:
+                json.dump(cand_pool_dict, f)
+
+            with open(f'.cache_cand_count.json', 'w') as f:
+                json.dump(candidate_det, f)
 
         self.cand_pool = cand_pool_dict
         self.candidate_det = candidate_det
@@ -82,13 +100,14 @@ class MBEIRMainDataset(Dataset):
     def get_random_negative_candidate_dids(self, query_dataset_id, modality):
         negative_candidate_dids = []
         tracker = 0
-        choice_dataset_ids = [k for k, v in self.candidate_det.items() if v > 0]
+        choice_dataset_ids = [k for k, v in self.candidate_det.items() if v[0] > 0]
         while tracker < self.random_config.CandidateSize:
             if self.random_config.IncludeCrossDomainNegatives:
                 neg_dataset_id = random.choice(choice_dataset_ids)
             else:
                 neg_dataset_id = query_dataset_id
-            neg_cand_did = neg_dataset_id + ':' + str(random.randint(0, self.candidate_det[int(neg_dataset_id)]))
+            doc_id_range = self.candidate_det[neg_dataset_id]
+            neg_cand_did = neg_dataset_id + ':' + str(random.randint(doc_id_range[1], doc_id_range[2]))
             neg_cand = self.cand_pool.get(neg_cand_did)
             if neg_cand.get("modality") == modality and neg_cand_did not in negative_candidate_dids:
                 negative_candidate_dids.append(neg_cand_did)
@@ -169,5 +188,8 @@ class MBEIRMainDataset(Dataset):
         ]
         if len(neg_cand_list) > 0:
             instance.update({"neg_cand_list": neg_cand_list})
+
+        if not self.is_train:
+            instance["modality"] = parse_modality(pos_cand_modality)
 
         return instance
