@@ -122,6 +122,11 @@ class Builder:
             else:
                 predictions = p.predictions
 
+            ## TODO: Handle padded predictions for the last batch
+            _, _, dim = np.where(predictions[-1] < 0.0)
+            if len(dim) > 0:
+                pass
+
             modalities = p.label_ids
 
             ground_truth = np.arange(bs)

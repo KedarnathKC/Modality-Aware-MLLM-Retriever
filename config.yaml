@@ -50,3 +50,11 @@ Evaluate:
     CheckPointIndex: -1
   Hyperparameters:
      EvalBatchSize: 32
+
+Retrieval:
+  Action: False
+  Model:
+    Name: openai/clip-vit-base-patch16
+    Index: -1
+  BatchSize: 16
+  Top: 10

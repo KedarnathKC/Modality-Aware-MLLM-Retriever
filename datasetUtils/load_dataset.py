@@ -36,13 +36,15 @@ def get_validation_data(split_perc=''):
     print("Validation data:")
     print(ds_validate)
 
-    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(8))
+    # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(10))
     #
-    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(8))
+    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(10))
     #
-    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(8))
+    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(10))
     #
-    # ds_validate = concatenate_datasets([ds_validate_part1, ds_validate_part2, ds_validate_part3])
+    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(10))
+    #
+    # ds_validate = concatenate_datasets([ds_validate_part0, ds_validate_part1, ds_validate_part2, ds_validate_part3])
 
     return ds_validate.shuffle(seed=42)
 

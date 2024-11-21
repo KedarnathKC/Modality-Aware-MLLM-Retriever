@@ -1,6 +1,9 @@
 from utils.argUtils import CustomObject, get_yaml_loader
 from fineTuning import train
 from evaluation import evaluate
+from retriever.indexer import create_index
+from retriever.search import run_retrieval
+from retriever.analyse import score_results
 import yaml
 import json
 
@@ -16,6 +19,12 @@ def start(configPath):
 
     if Args.Evaluate.Action:
         evaluate(Args)
+
+    if Args.Retrieval.Action:
+        create_index(Args)
+        run_retrieval(Args)
+        score_results(Args)
+
 
 if __name__ == '__main__':
     start('config.yaml')

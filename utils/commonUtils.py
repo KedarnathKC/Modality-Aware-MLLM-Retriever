@@ -12,6 +12,31 @@ def represent_bool(self, data):
 
 yaml.add_representer(bool, represent_bool)
 
+DATASET_CAN_NUM_UPPER_BOUND = 10000000  # Maximum number of candidates per dataset
+DATASET_QUERY_NUM_UPPER_BOUND = 500000  # Maximum number of queries per dataset
+
+
+def unhash_qid(hashed_qid):
+    dataset_id = hashed_qid // DATASET_QUERY_NUM_UPPER_BOUND
+    data_within_id = hashed_qid % DATASET_QUERY_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
+def unhash_did(hashed_did):
+    dataset_id = hashed_did // DATASET_CAN_NUM_UPPER_BOUND
+    data_within_id = hashed_did % DATASET_CAN_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
+def hash_qid(qid):
+    dataset_id, data_within_id = map(int, qid.split(":"))
+    return dataset_id * DATASET_QUERY_NUM_UPPER_BOUND + data_within_id
+
+
+def hash_did(did):
+    dataset_id, data_within_id = map(int, did.split(":"))
+    return dataset_id * DATASET_CAN_NUM_UPPER_BOUND + data_within_id
+
 
 def save_config(output_path, Args):
     with open(output_path, 'w', encoding='utf-8') as f:

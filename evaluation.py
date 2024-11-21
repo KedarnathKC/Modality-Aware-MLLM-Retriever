@@ -1,6 +1,6 @@
 from transformers import TrainingArguments, CLIPModel
 from clipTrainer import ClipTrainer
-from utils.pathUtils import prepare_output_path, get_checkpoint_path, get_model_path
+from utils.pathUtils import prepare_output_path, get_model_path
 from utils.commonUtils import start_prediction, save_config
 from datasetUtils.prepare_dataset import Builder
 import numpy as np
@@ -22,21 +22,18 @@ def get_evaluation_args(output_path, hyperparameters):
     )
 
 
-def save_embeddings(output_path, embeddings, ids):
-    if "query" in output_path:
-        embed = "query"
-    else:
-        embed = "candidate"
+def save_embeddings(output_path, embed, embeddings, ids):
 
+    output_path = output_path+f'embeddings/'
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
     print(f"\n{embed} embedding size: {embeddings.shape}, ids: {ids.shape}")
 
-    np.save(output_path+f"{embed}_embed.npy", embeddings)
-    np.save(output_path+f"{embed}_ids.npy", ids)
+    np.save(output_path+f'{embed}_embed.npy', embeddings)
+    np.save(output_path+f'{embed}_ids.npy', ids)
 
-    print(f"\n{embed} embeddings saved to {output_path}")
+    print(f"{embed} embeddings saved to {output_path}")
 
 
 def evaluate(Args):
@@ -47,9 +44,7 @@ def evaluate(Args):
 
     eval_args = get_evaluation_args(output_path, Args.Evaluate.Hyperparameters)
 
-    if Args.Evaluate.Model.LoadCheckPoint:
-        model_path = get_checkpoint_path('FineTuned', Args)
-    elif Args.Evaluate.Model.UseLocal:
+    if Args.Evaluate.Model.UseLocal:
         model_path = get_model_path('FineTuned', Args)
     else:
         model_path = Args.Evaluate.Model.Name
@@ -72,9 +67,9 @@ def evaluate(Args):
 
     query_embeddings, candidate_embeddings, query_ids, candidate_ids = start_prediction(evaluation_trainer, testing_data)
 
-    save_embeddings(output_path + 'query_embeddings/', query_embeddings, query_ids)
+    save_embeddings(output_path, 'query', query_embeddings, query_ids)
 
-    save_embeddings(output_path + 'candidate_embeddings/', candidate_embeddings, candidate_ids)
+    save_embeddings(output_path, 'candidate', candidate_embeddings, candidate_ids)
 
 
 

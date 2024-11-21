@@ -64,11 +64,15 @@ def get_checkpoint_path(step, Args):
 def get_model_path(step, Args):
     root = Args.Common.Results + step + '/'
 
-    Model = Args.Evaluate.Model
+    if Args.Evaluate.Action:
+        Model = Args.Evaluate.Model
+    else:
+        Model = Args.Retrieval.Model
 
     model_path = check_model_path(root, Model.Name, Args.Common.DataSet.Name, Model.Index)
 
-    model_path += '/' + Args.FineTuning.Model.OutputPath
+    if Args.Evaluate.Action:
+        model_path += '/' + Args.FineTuning.Model.OutputPath
 
     return model_path
 

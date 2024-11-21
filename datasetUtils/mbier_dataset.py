@@ -5,11 +5,10 @@ from tqdm import tqdm
 import random
 from PIL import Image
 from torch.utils.data import Dataset
+from utils.commonUtils import hash_qid, hash_did
 from transformers import CLIPProcessor
 from datasetUtils.load_dataset import get_training_data, get_candidate_dataset, get_validation_data
 
-DATASET_CAN_NUM_UPPER_BOUND = 10000000  # Maximum number of candidates per dataset
-DATASET_QUERY_NUM_UPPER_BOUND = 500000  # Maximum number of queries per dataset
 
 def format_string(s):
     """Strip the string, remove carriage returns, and capitalize the first character."""
@@ -22,28 +21,6 @@ def format_string(s):
 
 def parse_modality(modality):
     return 1 if modality == "image" else 0
-
-
-def hash_qid(qid):
-    dataset_id, data_within_id = map(int, qid.split(":"))
-    return dataset_id * DATASET_QUERY_NUM_UPPER_BOUND + data_within_id
-
-
-def unhash_qid(hashed_qid):
-    dataset_id = hashed_qid // DATASET_QUERY_NUM_UPPER_BOUND
-    data_within_id = hashed_qid % DATASET_QUERY_NUM_UPPER_BOUND
-    return f"{dataset_id}:{data_within_id}"
-
-
-def hash_did(did):
-    dataset_id, data_within_id = map(int, did.split(":"))
-    return dataset_id * DATASET_CAN_NUM_UPPER_BOUND + data_within_id
-
-
-def unhash_did(hashed_did):
-    dataset_id = hashed_did // DATASET_CAN_NUM_UPPER_BOUND
-    data_within_id = hashed_did % DATASET_CAN_NUM_UPPER_BOUND
-    return f"{dataset_id}:{data_within_id}"
 
 
 class MBEIRMainDataset(Dataset):

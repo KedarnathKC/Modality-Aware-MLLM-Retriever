@@ -4,10 +4,8 @@ import logging
 import json
 import argparse
 
-from pygments.lexer import default
-from tqdm import trange, tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-from load_dataset import get_dataset
+from tqdm import tqdm
+from datasetUtils.load_dataset import get_dataset
 
 logging.basicConfig(
     filename='dataset/logs/output.log',
