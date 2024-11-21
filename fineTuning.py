@@ -1,7 +1,7 @@
 from transformers import TrainingArguments, CLIPModel
 from clipTrainer import ClipTrainer
 from utils.pathUtils import prepare_output_path, get_checkpoint_path
-from prepare_dataset import Builder
+from datasetUtils.prepare_dataset import Builder
 from utils.commonUtils import start_training
 from transformers.training_args import OptimizerNames
 import warnings
@@ -27,9 +27,10 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         lr_scheduler_type='cosine',
         warmup_ratio=hyperparameters.WarmUpRatio,
         weight_decay=hyperparameters.WeightDecay,
+        adam_epsilon=1.0e-6,
         save_total_limit=2,
-        metric_for_best_model='loss',
-        greater_is_better=False,
+        metric_for_best_model='accuracy',
+        greater_is_better=True,
         optim=OptimizerNames.ADAMW_HF,
         remove_unused_columns=False,
         push_to_hub=False,

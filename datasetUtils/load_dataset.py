@@ -1,4 +1,4 @@
-from datasets import load_dataset, load_dataset_builder, concatenate_datasets, Features, Value
+from datasets import load_dataset, concatenate_datasets, Features, Value
 
 files = ['*visualnews*','*fashion200k*','*mscoco*']
 
@@ -16,6 +16,11 @@ def get_training_data(split_perc=''):
 
     print("Training data:")
     print(ds_train)
+
+    # ds_train_part0 = ds_train.filter(lambda x: x['qid'].startswith("0:")).select(range(10))
+    # ds_train_part1 = ds_train.filter(lambda x: x['qid'].startswith("1:")).select(range(10))
+    # ds_train_part2 = ds_train.filter(lambda x: x['qid'].startswith("9:")).select(range(10))
+    # ds_train = concatenate_datasets([ds_train_part0, ds_train_part1, ds_train_part2])
 
     return ds_train.shuffle(seed=42)
 
@@ -35,6 +40,17 @@ def get_validation_data(split_perc=''):
     ds_validate = concatenate_datasets(ds_validate_tasks)
     print("Validation data:")
     print(ds_validate)
+
+    # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(6))
+    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(9))
+    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(4))
+    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(5))
+
+    # ds_validate_part0 = ds_validate.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'image').select(range(5))
+    # ds_validate_part1 = ds_validate.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'text').select(range(5))
+    # ds_validate_part2 = ds_validate.filter(lambda x: x['qid'].startswith("1:") and x['query_modality'] == 'image').select(range(5))
+    # ds_validate_part3 = ds_validate.filter(lambda x: x['qid'].startswith("9:") and x['query_modality'] == 'text').select(range(5))
+    # ds_validate = concatenate_datasets([ds_validate_part0, ds_validate_part1, ds_validate_part2, ds_validate_part3])
 
     return ds_validate.shuffle(seed=42)
 
@@ -87,9 +103,13 @@ def validate(ds_train, ds_validate, ds_candidate):
     for pos_cand in ds_train['pos_cand_list']:
         train_cand_dids += pos_cand
 
+    print(f"Total Training candidates: {len(train_cand_dids)}")
+
     val_cand_dids = []
     for pos_cand in ds_validate['pos_cand_list']:
         val_cand_dids += pos_cand
+
+    print(f"Total Validation candidates: {len(val_cand_dids)}")
 
     candidate_dids = ds_candidate['did']
 
@@ -99,7 +119,7 @@ def validate(ds_train, ds_validate, ds_candidate):
     diff = set(val_cand_dids).difference(set(candidate_dids))
     print(f"Missing validation candidates: {len(diff)}")
 
-    print(set(candidate_dids) == set(train_cand_dids).union(set(val_cand_dids)))
+    print(f"Confirm candidate has all dids :{set(candidate_dids) == set(train_cand_dids).union(set(val_cand_dids))}")
 
 
 if __name__ == '__main__':
