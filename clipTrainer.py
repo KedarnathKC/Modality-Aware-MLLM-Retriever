@@ -12,6 +12,8 @@ class ClipTrainer(Trainer):
         self.onlyPrediction = onlyPrediction
         if self.onlyPrediction:
             self.bs = self.configArgs.Evaluate.Hyperparameters.EvalBatchSize
+        else:
+            self.bs = self.configArgs.FineTuning.Hyperparameters.EvalBatchSize
         self.loss_function = nn.CrossEntropyLoss()
         self.temperature = self.configArgs.FineTuning.Hyperparameters.Temperature
 
@@ -40,8 +42,8 @@ class ClipTrainer(Trainer):
     def expand_predictions(self, logits):
         if self.bs == logits.shape[0]:
             return logits
-        expand_dim = self.bs -logits.shape[0]
-        expanded_logits = F.pad(logits, pad=(0, expand_dim, 0, expand_dim), mode='constant', value=-1)
+        expand_dim = self.bs - logits.shape[0]
+        expanded_logits = F.pad(logits, pad=(0, expand_dim, 0, expand_dim), mode='constant', value=-2)
         return expanded_logits
 
     def prediction_outputs(self, embeddings, index_mapping, inputs, logits, p_embeds, q_embeds):
@@ -111,4 +113,4 @@ class ClipTrainer(Trainer):
 
         loss = self.loss_function(logits / self.temperature, labels)
 
-        return (loss, {"predictions": logits.unsqueeze(0)}) if return_outputs else loss
+        return (loss, {"predictions": self.expand_predictions(logits).unsqueeze(0)}) if return_outputs else loss

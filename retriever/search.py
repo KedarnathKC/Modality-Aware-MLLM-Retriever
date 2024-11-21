@@ -2,6 +2,7 @@ import os
 import faiss
 import json
 import numpy as np
+from tqdm import tqdm
 from utils.pathUtils import get_model_path
 
 
@@ -41,7 +42,7 @@ def run_retrieval(Args):
         batch_size = Args.Retrieval.BatchSize
         top_n = Args.Retrieval.Top
         # Process in batches
-        for i in range(0, len(query_embeddings), batch_size):
+        for i in tqdm(range(0, len(query_embeddings), batch_size), desc="Batched Index Search"):
             batch = query_embeddings[i: i + batch_size]
             distances, indices = indexer.search(batch, top_n)
             all_distances.append(distances)
@@ -59,7 +60,7 @@ def run_retrieval(Args):
 def save_run_qrel(run_qrel_path, query_ids, retrieved_cand_dist, retrieved_indices):
 
     run_qrel = {}
-    for idx, (distances, indices) in enumerate(zip(retrieved_cand_dist, retrieved_indices)):
+    for idx, (distances, indices) in tqdm(enumerate(zip(retrieved_cand_dist, retrieved_indices)), desc="Scoring"):
         qid_map = {}
         for rank, (doc_id, score) in enumerate(zip(indices, distances), start=1):
             qid_map[doc_id.item()] = 1 / rank

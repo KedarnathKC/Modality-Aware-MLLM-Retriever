@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import torch.nn.functional as F
 from transformers import CLIPProcessor
 from datasetUtils.mbier_dataset import MBEIRMainDataset
 
@@ -12,10 +13,26 @@ def _get_padded_image_with_mask(img):
     return (img, 1) if img is not None else (torch.zeros((3, 224, 224)), 0)
 
 
+def get_scores(D, modalities, pred):
+    ground_truth = np.arange(D)
+    # Find the index with maximum value
+    max_candidate_idx = np.argmax(pred, axis=-1)
+    # Calculate accuracy based on the selected candidate index
+    N = pred.shape[0]
+    accuracy = np.sum(np.repeat([ground_truth], N, axis=0) == max_candidate_idx)
+    # Calculate modality accuracy based on the selected candidate index
+    modality_accuracy = np.sum(modalities == modalities[np.arange(N)[:, None], max_candidate_idx])
+    return accuracy, modality_accuracy
+
+
 class Builder:
     def __init__(self, config, onlyPrediction=False):
         self.config = config
         self.onlyPrediction = onlyPrediction
+        if self.onlyPrediction:
+            self.bs = self.config.Evaluate.Hyperparameters.EvalBatchSize
+        else:
+            self.bs = self.config.FineTuning.Hyperparameters.EvalBatchSize
 
     def get_train_dataset(self):
         return MBEIRMainDataset(self.config)
@@ -65,7 +82,7 @@ class Builder:
             counter = 0
             for inst_idx, instance in enumerate(batch):
                 for instance_key in instance_keys:
-                    items = [instance[instance_key]] if instance_key not in ["neg_cand_list","remaining_pos_cand_list"]\
+                    items = [instance[instance_key]] if instance_key not in ["neg_cand_list", "remaining_pos_cand_list"] \
                         else instance[instance_key]  # list
                     for item in items:
                         txt = item["txt"]
@@ -102,7 +119,11 @@ class Builder:
 
             if "neg_cand_list" not in instance_keys:
                 processed_batch['return_loss'] = True
-                processed_batch['modalities'] = torch.tensor([modality["modality"] for modality in batch]).unsqueeze(0)
+                modalities = torch.tensor([bt["modality"] for bt in batch])
+                if modalities.shape[0] < self.bs:
+                    expand_dim = self.bs - modalities.shape[0]
+                    modalities = F.pad(modalities, pad=(0, expand_dim), mode='constant', value=-2)
+                processed_batch['modalities'] = modalities.unsqueeze(0)
 
             return processed_batch
 
@@ -122,22 +143,32 @@ class Builder:
             else:
                 predictions = p.predictions
 
-            ## TODO: Handle padded predictions for the last batch
-            _, _, dim = np.where(predictions[-1] < 0.0)
-            if len(dim) > 0:
-                pass
-
             modalities = p.label_ids
 
-            ground_truth = np.arange(bs)
-            # Find the index with maximum value
-            max_candidate_idx = np.argmax(predictions, axis=2)
-            # Calculate accuracy based on the selected candidate index
-            N = predictions.shape[0]
-            accuracy = np.mean(np.repeat([ground_truth], N, axis=0) == max_candidate_idx)
+            # To handle last batch predictions
+            _, dim = np.where(predictions[-1] == -2.0)
+            if len(dim) > 0:
+                pred = predictions[:-1,:,:]
+                modal = modalities[:-1,:]
+                D = int((bs ** 2 - len(dim)) ** 0.5)
+            else:
+                pred = predictions
+                modal = modalities
+                D = bs
 
-            # Calculate modality accuracy based on the selected candidate index
-            modality_accuracy = np.mean(modalities == modalities[np.arange(N)[:, None], max_candidate_idx])
+            accuracy, modality_accuracy = [0,0], [0,0]
+            accuracy[0], modality_accuracy[0] = get_scores(bs, modal, pred)
+
+            if D < bs:
+                pred = predictions[-1]
+                pred = pred[pred > -2.0].reshape(-1, D)[None,:]
+                modal = modalities[-1]
+                modal = modal[modal > -2.0][None,:]
+                accuracy[1], modality_accuracy[1] = get_scores(D, modal, pred)
+
+            T = bs * (predictions.shape[0] - 1) + D
+            accuracy = np.sum(accuracy) / T
+            modality_accuracy = np.sum(modality_accuracy) / T
 
             return {
                 "accuracy": accuracy,
@@ -145,10 +176,3 @@ class Builder:
             }
 
         return compute
-
-
-
-
-
-
-

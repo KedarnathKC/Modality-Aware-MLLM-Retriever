@@ -17,6 +17,11 @@ def get_training_data(split_perc=''):
     print("Training data:")
     print(ds_train)
 
+    # ds_train_part0 = ds_train.filter(lambda x: x['qid'].startswith("0:")).select(range(10))
+    # ds_train_part1 = ds_train.filter(lambda x: x['qid'].startswith("1:")).select(range(10))
+    # ds_train_part2 = ds_train.filter(lambda x: x['qid'].startswith("9:")).select(range(10))
+    # ds_train = concatenate_datasets([ds_train_part0, ds_train_part1, ds_train_part2])
+
     return ds_train.shuffle(seed=42)
 
 
@@ -36,14 +41,15 @@ def get_validation_data(split_perc=''):
     print("Validation data:")
     print(ds_validate)
 
-    # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(10))
-    #
-    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(10))
-    #
-    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(10))
-    #
-    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(10))
-    #
+    # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(6))
+    # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(9))
+    # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(4))
+    # ds_validate_part3 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 1).select(range(5))
+
+    # ds_validate_part0 = ds_validate.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'image').select(range(5))
+    # ds_validate_part1 = ds_validate.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'text').select(range(5))
+    # ds_validate_part2 = ds_validate.filter(lambda x: x['qid'].startswith("1:") and x['query_modality'] == 'image').select(range(5))
+    # ds_validate_part3 = ds_validate.filter(lambda x: x['qid'].startswith("9:") and x['query_modality'] == 'text').select(range(5))
     # ds_validate = concatenate_datasets([ds_validate_part0, ds_validate_part1, ds_validate_part2, ds_validate_part3])
 
     return ds_validate.shuffle(seed=42)

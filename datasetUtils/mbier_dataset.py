@@ -99,9 +99,9 @@ class MBEIRMainDataset(Dataset):
         else:
             return len(self.ds_validate)
 
-    def get_random_negative_candidate_dids(self, query_dataset_id, modality):
-        negative_candidate_dids = []
-        tracker = 0
+    def get_random_negative_candidate_dids(self, query_dataset_id, pos_cand_list, pos_cand_modality, hard_negatives):
+        negative_candidate_dids = hard_negatives
+        tracker = len(negative_candidate_dids)
         choice_dataset_ids = [k for k, v in self.candidate_det.items() if v[0] > 0]
         while tracker < self.random_config.CandidateSize:
             if self.random_config.IncludeCrossDomainNegatives:
@@ -111,13 +111,14 @@ class MBEIRMainDataset(Dataset):
             doc_id_range = self.candidate_det[neg_dataset_id]
             neg_cand_did = neg_dataset_id + ':' + str(random.randint(doc_id_range[1], doc_id_range[2]))
             neg_cand = self.cand_pool.get(neg_cand_did, None)
-            if neg_cand and neg_cand.get("modality") == modality and neg_cand_did not in negative_candidate_dids:
+            if neg_cand and neg_cand.get("modality") == pos_cand_modality \
+                    and neg_cand_did not in negative_candidate_dids and neg_cand_did not in pos_cand_list:
                 negative_candidate_dids.append(neg_cand_did)
                 tracker += 1
 
         return negative_candidate_dids
 
-    def get_negative_candidate_dids(self, qid, query_dataset_id, modality):
+    def get_negative_candidate_dids(self, qid, pos_cand_list, pos_cand_modality, hard_negatives):
 
         if self.random_config.UseModalityNegatives:
             ## TODO::
@@ -125,7 +126,7 @@ class MBEIRMainDataset(Dataset):
             ## 2. For the qid, get negatives with correct but lower ranked than the threshold modality
             pass
         else:
-            return self.get_random_negative_candidate_dids(query_dataset_id, modality)
+            return self.get_random_negative_candidate_dids(qid.split(":")[0], pos_cand_list, pos_cand_modality, hard_negatives)
 
     def _load_and_preprocess_image(self, query_img_path):
         """Load an image given a path"""
@@ -164,7 +165,8 @@ class MBEIRMainDataset(Dataset):
 
         selected_neg_cand_list = []
         if self.is_train:
-            selected_neg_cand_id_list = self.get_negative_candidate_dids(qid, query_dataset_id, pos_cand_modality)
+            hard_negatives = mbeir_entry.get("neg_cand_list", [])
+            selected_neg_cand_id_list = self.get_negative_candidate_dids(qid, pos_cand_list, pos_cand_modality, hard_negatives)
             for neg_cand_did in selected_neg_cand_id_list:
                 neg_cand = self.cand_pool.get(neg_cand_did)
                 neg_cand_txt = neg_cand.get("txt") or ""
