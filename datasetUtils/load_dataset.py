@@ -3,7 +3,7 @@ from datasets import load_dataset, concatenate_datasets, Features, Value
 files = ['*visualnews*','*fashion200k*','*mscoco*']
 
 
-def get_training_data(split_perc=''):
+def get_training_data(split_perc='', show_details=False):
 
     data_files_train = {
         'train': ['query/train/' + file + '.jsonl' for file in files],
@@ -12,20 +12,27 @@ def get_training_data(split_perc=''):
     ds_train = load_dataset("TIGER-Lab/M-BEIR",
                             cache_dir='dataset/train',
                             data_files=data_files_train,
-                            name='query', split=f'train[:{split_perc}]')
+                            name='query', split=f'train')
 
-    print("Training data:")
-    print(ds_train)
+    if show_details:
+        print("Training data:")
+        print(ds_train)
 
     # ds_train_part0 = ds_train.filter(lambda x: x['qid'].startswith("0:")).select(range(10))
     # ds_train_part1 = ds_train.filter(lambda x: x['qid'].startswith("1:")).select(range(10))
     # ds_train_part2 = ds_train.filter(lambda x: x['qid'].startswith("9:")).select(range(10))
     # ds_train = concatenate_datasets([ds_train_part0, ds_train_part1, ds_train_part2])
 
-    return ds_train.shuffle(seed=42)
+    ds_train = ds_train.shuffle(seed=42)
+
+    if split_perc != '':
+        split_perc = int(split_perc)
+        ds_train.select(range(split_perc))
+
+    return ds_train
 
 
-def get_validation_data(split_perc=''):
+def get_validation_data(split_perc='', show_details=False):
     ds_validate_tasks = []
     if split_perc != '': split_perc = int(split_perc) // 2
     for task_n in ['task0*', 'task3*']:
@@ -36,10 +43,12 @@ def get_validation_data(split_perc=''):
         ds_validate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
                                               cache_dir='dataset/val',
                                               data_files=data_files_validate_task_n,
-                                              name='query', split=f'val[:{split_perc}]'))
+                                              name='query', split=f'val'))
     ds_validate = concatenate_datasets(ds_validate_tasks)
-    print("Validation data:")
-    print(ds_validate)
+
+    if show_details:
+        print("Validation data:")
+        print(ds_validate)
 
     # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(6))
     # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(9))
@@ -52,10 +61,16 @@ def get_validation_data(split_perc=''):
     # ds_validate_part3 = ds_validate.filter(lambda x: x['qid'].startswith("9:") and x['query_modality'] == 'text').select(range(5))
     # ds_validate = concatenate_datasets([ds_validate_part0, ds_validate_part1, ds_validate_part2, ds_validate_part3])
 
-    return ds_validate.shuffle(seed=42)
+    ds_validate = ds_validate.shuffle(seed=42)
+
+    if split_perc != '':
+        split_perc = int(split_perc)
+        ds_validate = ds_validate.select(range(split_perc))
+
+    return ds_validate
 
 
-def get_candidate_dataset(split_perc=''):
+def get_candidate_dataset(split_perc='', show_details=False):
     ds_candidate_tasks = []
 
     features = Features({
@@ -80,19 +95,20 @@ def get_candidate_dataset(split_perc=''):
     dataset_ids = ['0', '1', '9']
     ds_candidate = ds_candidate.filter(lambda candidate: candidate['did'].split(':')[0] in dataset_ids)
 
-    print("Candidate data:")
-    print(ds_candidate)
+    if show_details:
+        print("Candidate data:")
+        print(ds_candidate)
 
     return ds_candidate
 
 
-def get_dataset(train_perc='', valid_perc='', cand_perc=''):
+def get_dataset(train_perc='', valid_perc='', cand_perc='', show_details=False):
 
-    ds_train = get_training_data(train_perc)
+    ds_train = get_training_data(train_perc, show_details)
 
-    ds_validate = get_validation_data(valid_perc)
+    ds_validate = get_validation_data(valid_perc, show_details)
 
-    ds_candidate = get_candidate_dataset(cand_perc)
+    ds_candidate = get_candidate_dataset(cand_perc, show_details)
 
     return ds_train, ds_validate, ds_candidate
 
@@ -123,7 +139,7 @@ def validate(ds_train, ds_validate, ds_candidate):
 
 
 if __name__ == '__main__':
-    ds_train, ds_validate, ds_candidate = get_dataset()
+    ds_train, ds_validate, ds_candidate = get_dataset(show_details=True)
 
     validate(ds_train, ds_validate, ds_candidate)
 
