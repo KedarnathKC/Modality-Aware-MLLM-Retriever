@@ -67,7 +67,7 @@ def save_run_qrel(run_qrel_path, query_ids, retrieved_cand_dist, retrieved_indic
         run_qrel[query_ids[idx].item()] = qid_map
 
     with open(run_qrel_path, "w") as f:
-       json.dump(run_qrel, f)
+       json.dump(run_qrel, f, indent=2)
 
     print(f"Run file saved to {run_qrel_path}")
 

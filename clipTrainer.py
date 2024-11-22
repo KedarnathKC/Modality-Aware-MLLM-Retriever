@@ -15,7 +15,6 @@ class ClipTrainer(Trainer):
         else:
             self.bs = self.configArgs.FineTuning.Hyperparameters.EvalBatchSize
         self.loss_function = nn.CrossEntropyLoss()
-        self.temperature = self.configArgs.FineTuning.Hyperparameters.Temperature
 
     def _encode_text(self, text_tensor, txt_attention_mask):
         return self.model.get_text_features(text_tensor, txt_attention_mask)
@@ -92,25 +91,22 @@ class ClipTrainer(Trainer):
         q_embeds = F.normalize(q_embeds, dim=-1)
         p_embeds = F.normalize(p_embeds, dim=-1)
 
+        logit_scale = self.model.logit_scale.exp().to(p_embeds.device)
+
         if enable_hard_neg:
-            positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True)
-
-            query = q_embeds.unsqueeze(1)
-            negative_logits = query @ n_embeds.transpose(-2, -1)
-            negative_logits = negative_logits.squeeze(1)
-
-            # First index in last dimension are the positive samples
+            n_embeds = F.normalize(n_embeds, dim=-1)
+            positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True) * logit_scale
+            negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
-            labels = torch.zeros(len(logits), dtype=torch.long, device=query.device)
-
+            labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
         else:
-            logits = q_embeds @ p_embeds.transpose(-2, -1)
+            logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
             labels = torch.arange(len(q_embeds), device=q_embeds.device)
 
-        if self.onlyPrediction:
-            outputs = self.prediction_outputs(embeddings, index_mapping, inputs, logits, p_embeds, q_embeds)
-            return (torch.zeros(1), outputs) if return_outputs else torch.zeros(1)
+            if self.onlyPrediction:
+                outputs = self.prediction_outputs(embeddings, index_mapping, inputs, logits, p_embeds, q_embeds)
+                return (torch.zeros(1), outputs) if return_outputs else torch.zeros(1)
 
-        loss = self.loss_function(logits / self.temperature, labels)
+        loss = self.loss_function(logits, labels)
 
         return (loss, {"predictions": self.expand_predictions(logits).unsqueeze(0)}) if return_outputs else loss

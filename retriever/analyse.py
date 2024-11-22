@@ -16,9 +16,31 @@ task_mapping = {
     "3": "Image_2_Text",
 }
 
+metric_mapping = {
+    'R': 'recall',
+    'P': 'precision',
+    'NDCG': 'ndcg_cut',
+}
 
-def get_scores(qrels, run):
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {'ndcg_cut.10', 'recall.5,10'})
+
+def get_metrics(metrics):
+    qrel_metrics = {}
+    for metric in metrics.split(','):
+        metric = metric.strip()
+        if "@" in metric:
+            metr, cut = map(str, metric.split("@"))
+            if metric_mapping[metr] not in qrel_metrics:
+                qrel_metrics[metric_mapping[metr]] = [cut]
+            else:
+                qrel_metrics[metric_mapping[metr]].append(cut)
+        else:
+            qrel_metrics[metric_mapping[metric]] = []
+
+    return set([f'{q_metric}.' + ','.join(cuts) for q_metric, cuts in qrel_metrics.items()])
+
+
+def get_scores(metrics, qrels, run):
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, metrics)
     result = evaluator.evaluate(run)
     metrics = ['ndcg_cut', 'recall']
     cutoffs = [5, 10]
@@ -31,16 +53,24 @@ def get_scores(qrels, run):
                     scores[f'{metric}_{cutoff}'] += result[key][f'{metric}_{cutoff}']
     run_length = len(run)
     for score in scores:
-        scores[score] *= 100/run_length
+        scores[score] *= 100 / run_length
         scores[score] = round(scores[score], 5)
     return scores
 
 
-def pretty_print_save(results_path, results):
+def pretty_save(results_path, results):
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
 
     print(f"Saved pytrac evaluations to {results_path}")
+
+
+def local_save(local_path, results, task, dataset_id):
+    path = os.path.join(local_path, f"{task_mapping[task]}_{dataset_mapping[dataset_id]}.json")
+    with open(path, 'w') as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Saved local pytrac evaluations to {path}")
 
 
 def score_results(Args):
@@ -50,6 +80,8 @@ def score_results(Args):
     qrels_path = 'datasetUtils/qrels.json'
     tasks_path = 'datasetUtils/task_map.json'
     results_path = evaluation_path + '/results.json'
+    local_qrel_path = evaluation_path + '/local'
+    os.makedirs(local_qrel_path, exist_ok=True)
 
     for file_paths in [run_qrel_path, qrels_path, tasks_path]:
         if not os.path.exists(file_paths):
@@ -64,6 +96,8 @@ def score_results(Args):
     with open(tasks_path, 'r') as f:
         tasks_map = json.load(f)
 
+    metrics = get_metrics(Args.Common.Metrics.Name)
+
     print(f"Running pytrac evaluations.")
     results = {}
     for task in ['0', '3']:
@@ -77,7 +111,8 @@ def score_results(Args):
                     subset_run_qrels[qid] = run_qrel[qid]
                     subset_qrels[qid] = qrels[qid]
             if len(subset_run_qrels) > 0:
-                scores = get_scores(subset_qrels, subset_run_qrels)
+                local_save(local_qrel_path, subset_run_qrels, task, dataset_id)
+                scores = get_scores(metrics, subset_qrels, subset_run_qrels)
                 scores["NDCG@10"] = scores.pop("ndcg_cut_10")
                 scores["Recall@5"] = scores.pop("recall_5")
                 scores["Recall@10"] = scores.pop("recall_10")
@@ -86,4 +121,4 @@ def score_results(Args):
     print(f"Completed pytrac evaluations.")
     print(json.dumps(results, indent=2))
 
-    pretty_print_save(results_path, results)
+    pretty_save(results_path, results)
