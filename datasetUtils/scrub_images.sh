@@ -1,0 +1,1 @@
+python3 scrub_dataset.py --source $DATASET_PATH/mbeir_images/ --destination $DATASET_PATH/mbeir_imagesV2/
