@@ -24,7 +24,8 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         eval_steps=hyperparameters.Steps.EvalSteps,
         logging_steps=hyperparameters.Steps.LoggingSteps,
         learning_rate=hyperparameters.Lr,
-        lr_scheduler_type='cosine',
+        lr_scheduler_type='cosine_with_min_lr',
+        lr_scheduler_kwargs={"min_lr_rate": 0.9},
         warmup_ratio=hyperparameters.WarmUpRatio,
         weight_decay=hyperparameters.WeightDecay,
         adam_epsilon=1.0e-6,
@@ -39,6 +40,7 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         gradient_accumulation_steps=hyperparameters.Steps.GradientAccumulation,
         label_names=['modalities'],
         report_to='tensorboard',
+        use_cpu=hyperparameters.UseCPU,
     )
 
 

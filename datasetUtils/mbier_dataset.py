@@ -1,6 +1,5 @@
 import os
 import json
-import numpy as np
 from tqdm import tqdm
 import random
 from PIL import Image
@@ -27,8 +26,29 @@ class MBEIRMainDataset(Dataset):
     def __init__(self, config, is_train=True, onlyPrediction=False):
         super(MBEIRMainDataset, self).__init__()
 
+        self.config = config
+        self.random_config = self.config.FineTuning.NegativeCandidates
+        self.is_train = is_train
+        self.onlyPrediction = onlyPrediction
+
+        self.load_query_instruction()
+        Model = config.FineTuning.Model
+        DataSet = config.Common.DataSet
+        self.feature_processor = CLIPProcessor.from_pretrained(Model.Name, cache_dir=Model.CachePath)
+        domains = DataSet.FilterDomains
+        if is_train:
+            self.ds_train = get_training_data(DataSet.Train, domains=domains)
+            print("Training data loaded.")
+        else:
+            self.ds_validate = get_validation_data(DataSet.Test, domains=domains)
+            print("Validation data loaded.")
+
+        self._load_cand_pool_as_dict(DataSet.Candidate, domains=domains)
+        print(f"{'Training' if self.is_train else 'Validation'} candidates loaded.")
+
+    def load_query_instruction(self):
         prompts_dict = {}
-        with open(config.Common.DataSet.QueryInstructionsPath, "r") as f:
+        with open(self.config.Common.DataSet.QueryInstructionsPath, "r") as f:
             next(f)  # Skip the header line
             for line in f.readlines():
                 parts = line.strip().split("\t")
@@ -38,34 +58,25 @@ class MBEIRMainDataset(Dataset):
                 prompts_dict[key] = prompts
 
         self.query_instructions = prompts_dict
-        self.config = config
-        self.random_config = self.config.FineTuning.NegativeCandidates
 
-        Model = config.FineTuning.Model
-        DataSet = config.Common.DataSet
-        self.is_train = is_train
-        self.onlyPrediction = onlyPrediction
-        self.feature_processor = CLIPProcessor.from_pretrained(Model.Name, cache_dir=Model.CachePath)
-        if is_train:
-            self.ds_train, ds_candidate = get_training_data(DataSet.Train), get_candidate_dataset(DataSet.Candidate)
-        else:
-            self.ds_validate, ds_candidate = get_validation_data(DataSet.Test), get_candidate_dataset(DataSet.Candidate)
+    def _load_cand_pool_as_dict(self, perc, domains):
 
-        self._load_cand_pool_as_dict(ds_candidate)
+        cache_splits = "_".join(domains)
 
-    def _load_cand_pool_as_dict(self, ds_candidate):
-        cand_pool_dict = {}
-        candidate_det = {f'{idx}': (0, 1e5, -1e5) for idx in range(10)}
+        if os.path.exists(f"cache/.cache_cand_{cache_splits}.json"):
 
-        if os.path.exists(f".cache_cand_dict.json"):
-
-            with open(f'.cache_cand_dict.json', 'r') as f:
+            with open(f'cache/.cache_cand_{cache_splits}.json', 'r') as f:
                 cand_pool_dict = json.load(f)
 
-            with open(f'.cache_cand_count.json', 'r') as f:
+            with open(f'cache/.cache_cand_count_{cache_splits}.json', 'r') as f:
                 candidate_det = json.load(f)
 
         else:
+            cand_pool_dict = {}
+            candidate_det = {f'{idx}': (0, 1e5, -1e5) for idx in range(10)}
+
+            ds_candidate = get_candidate_dataset(perc, domains=domains)
+
             for cand_pool_entry in tqdm(ds_candidate, desc="Loading cand pool"):
                 did = cand_pool_entry.get("did")
                 cand_pool_dict[did] = cand_pool_entry
@@ -76,10 +87,11 @@ class MBEIRMainDataset(Dataset):
                                              min(candidate_det[dataset_id][1], doc_id),
                                              max(candidate_det[dataset_id][2], doc_id))
 
-            with open(f'.cache_cand_dict.json', 'w') as f:
+            os.makedirs("cache/", exist_ok=True)
+            with open(f'cache/.cache_cand_{cache_splits}.json', 'w') as f:
                 json.dump(cand_pool_dict, f)
 
-            with open(f'.cache_cand_count.json', 'w') as f:
+            with open(f'cache/.cache_cand_count_{cache_splits}.json', 'w') as f:
                 json.dump(candidate_det, f)
 
         self.cand_pool = cand_pool_dict

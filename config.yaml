@@ -7,6 +7,10 @@ Common:
     Name: MBIER
     QueryInstructionsPath: datasetUtils/query_instructions.tsv
     Path: !ENV ${DATASET_PATH} # Update the dataset path here or add DATASET_PATH to environment.
+    FilterDomains:
+      - visualnews
+      - fashion200k
+      - mscoco
     Train: '' # Set <>% or <> exact number of batches to train
     Test: '' # Set <>% or <> exact number of batches to test
     Candidate: '' # Set <>% or <> exact number of batches for candidate
@@ -26,16 +30,17 @@ FineTuning:
     LoadCheckPoint: False
     CheckPointIndex: -1
   Hyperparameters:
-    TrainBatchSize: 32
+    UseCPU: False
+    TrainBatchSize: 16
     EvalBatchSize: 32
     Epochs: 10
     Lr: 0.00005
     WeightDecay: 0.2
-    WarmUpRatio: 0.01
+    WarmUpRatio: 0.1
     Steps:
-      SaveSteps: 500
-      EvalSteps: 500
-      LoggingSteps: 100
+      SaveSteps: 100
+      EvalSteps: 100
+      LoggingSteps: 50
       GradientAccumulation: 1
 
 Evaluate:

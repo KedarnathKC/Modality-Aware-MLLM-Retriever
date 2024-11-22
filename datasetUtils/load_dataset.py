@@ -1,12 +1,22 @@
+import yaml
+import json
 from datasets import load_dataset, concatenate_datasets, Features, Value
+from utils.argUtils import CustomObject, get_yaml_loader
 
-files = ['*visualnews*','*fashion200k*','*mscoco*']
+
+domain_mapping = {
+    "visualnews": 0,
+    "fashion200k": 1,
+    "mscoco": 9,
+}
 
 
-def get_training_data(split_perc='', show_details=False):
+def get_training_data(split_perc='', domains=None, show_details=False):
+
+    print(f"Loading training data for {domains}")
 
     data_files_train = {
-        'train': ['query/train/' + file + '.jsonl' for file in files],
+        'train': ['query/train/' + f'*{file}*' + '.jsonl' for file in domains],
     }
 
     ds_train = load_dataset("TIGER-Lab/M-BEIR",
@@ -27,17 +37,20 @@ def get_training_data(split_perc='', show_details=False):
 
     if split_perc != '':
         split_perc = int(split_perc)
-        ds_train.select(range(split_perc))
+        ds_train = ds_train.select(range(split_perc))
 
     return ds_train
 
 
-def get_validation_data(split_perc='', show_details=False):
+def get_validation_data(split_perc='', domains=None, show_details=False):
     ds_validate_tasks = []
     if split_perc != '': split_perc = int(split_perc) // 2
+
+    print(f"Loading validation data for {domains}")
+
     for task_n in ['task0*', 'task3*']:
         data_files_validate_task_n = {
-            'val': ['query/val/' + file + task_n + '.jsonl' for file in files]
+            'val': ['query/val/' + f'*{file}*' + task_n + '.jsonl' for file in domains]
         }
 
         ds_validate_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
@@ -70,7 +83,7 @@ def get_validation_data(split_perc='', show_details=False):
     return ds_validate
 
 
-def get_candidate_dataset(split_perc='', show_details=False):
+def get_candidate_dataset(split_perc='', domains=None, show_details=False):
     ds_candidate_tasks = []
 
     features = Features({
@@ -92,7 +105,12 @@ def get_candidate_dataset(split_perc='', show_details=False):
 
     ds_candidate = concatenate_datasets(ds_candidate_tasks)
 
-    dataset_ids = ['0', '1', '9']
+    if domains:
+        dataset_ids = [str(domain_mapping[domain]) for domain in domains]
+        print(f"Loading candidate data for {domains}")
+    else:
+        dataset_ids = ['0', '1', '9']
+
     ds_candidate = ds_candidate.filter(lambda candidate: candidate['did'].split(':')[0] in dataset_ids)
 
     if show_details:
@@ -102,13 +120,13 @@ def get_candidate_dataset(split_perc='', show_details=False):
     return ds_candidate
 
 
-def get_dataset(train_perc='', valid_perc='', cand_perc='', show_details=False):
+def get_dataset(train_perc='', valid_perc='', cand_perc='', domains=None, show_details=False):
 
-    ds_train = get_training_data(train_perc, show_details)
+    ds_train = get_training_data(train_perc, domains, show_details)
 
-    ds_validate = get_validation_data(valid_perc, show_details)
+    ds_validate = get_validation_data(valid_perc, domains, show_details)
 
-    ds_candidate = get_candidate_dataset(cand_perc, show_details)
+    ds_candidate = get_candidate_dataset(cand_perc, domains, show_details)
 
     return ds_train, ds_validate, ds_candidate
 
@@ -139,8 +157,13 @@ def validate(ds_train, ds_validate, ds_candidate):
 
 
 if __name__ == '__main__':
-    ds_train, ds_validate, ds_candidate = get_dataset(show_details=True)
+
+    with open('config.yaml', 'r') as file:
+        config = yaml.load(file, get_yaml_loader())
+
+    x = json.dumps(config)
+    Args = json.loads(x, object_hook=lambda d: CustomObject(**d))
+
+    ds_train, ds_validate, ds_candidate = get_dataset(domains=Args.Common.DataSet.FilterDomains, show_details=True)
 
     validate(ds_train, ds_validate, ds_candidate)
-
-
