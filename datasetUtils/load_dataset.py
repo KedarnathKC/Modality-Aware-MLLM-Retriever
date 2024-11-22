@@ -24,10 +24,6 @@ def get_training_data(split_perc='', domains=None, show_details=False):
                             data_files=data_files_train,
                             name='query', split=f'train')
 
-    if show_details:
-        print("Training data:")
-        print(ds_train)
-
     # ds_train_part0 = ds_train.filter(lambda x: x['qid'].startswith("0:")).select(range(10))
     # ds_train_part1 = ds_train.filter(lambda x: x['qid'].startswith("1:")).select(range(10))
     # ds_train_part2 = ds_train.filter(lambda x: x['qid'].startswith("9:")).select(range(10))
@@ -38,6 +34,10 @@ def get_training_data(split_perc='', domains=None, show_details=False):
     if split_perc != '':
         split_perc = int(split_perc)
         ds_train = ds_train.select(range(split_perc))
+
+    if show_details:
+        print("Training data:")
+        print(ds_train)
 
     return ds_train
 
@@ -59,10 +59,6 @@ def get_validation_data(split_perc='', domains=None, show_details=False):
                                               name='query', split=f'val'))
     ds_validate = concatenate_datasets(ds_validate_tasks)
 
-    if show_details:
-        print("Validation data:")
-        print(ds_validate)
-
     # ds_validate_part0 = ds_validate.filter(lambda x: len(x['pos_cand_list']) > 3).select(range(6))
     # ds_validate_part1 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 3).select(range(9))
     # ds_validate_part2 = ds_validate.filter(lambda x: len(x['pos_cand_list']) == 2).select(range(4))
@@ -79,6 +75,10 @@ def get_validation_data(split_perc='', domains=None, show_details=False):
     if split_perc != '':
         split_perc = int(split_perc)
         ds_validate = ds_validate.select(range(split_perc))
+
+    if show_details:
+        print("Validation data:")
+        print(ds_validate)
 
     return ds_validate
 
