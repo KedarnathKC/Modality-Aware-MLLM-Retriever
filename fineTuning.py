@@ -38,6 +38,7 @@ def get_fine_tuning_trainer_args(output_path, hyperparameters):
         seed=42,
         gradient_accumulation_steps=hyperparameters.Steps.GradientAccumulation,
         label_names=['modalities'],
+        report_to='tensorboard',
     )
 
 
@@ -54,7 +55,7 @@ def train(Args):
     else:
         model_path = Args.FineTuning.Model.Name
 
-    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.FineTuning.Model.CachePath, attn_implementation='flash_attention_2')
+    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.FineTuning.Model.CachePath)
 
     training_data = builder.get_train_dataset()
     testing_data = builder.get_eval_dataset()

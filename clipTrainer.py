@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import gc
 from transformers import Trainer
 
 
@@ -64,6 +65,7 @@ class ClipTrainer(Trainer):
             "query_ids": inputs['qid_list'],
             "candidate_ids": candidate_dids
         }
+
         return outputs
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -99,14 +101,20 @@ class ClipTrainer(Trainer):
             negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
             labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
+            del n_embeds
         else:
             logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
             labels = torch.arange(len(q_embeds), device=q_embeds.device)
 
             if self.onlyPrediction:
                 outputs = self.prediction_outputs(embeddings, index_mapping, inputs, logits, p_embeds, q_embeds)
+                del embeddings, inputs, logits, p_embeds, q_embeds
+                gc.collect()
                 return (torch.zeros(1), outputs) if return_outputs else torch.zeros(1)
 
         loss = self.loss_function(logits, labels)
+
+        del embeddings, inputs, p_embeds, q_embeds
+        gc.collect()
 
         return (loss, {"predictions": self.expand_predictions(logits).unsqueeze(0)}) if return_outputs else loss

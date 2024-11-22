@@ -19,6 +19,7 @@ def get_evaluation_args(output_path, hyperparameters):
         push_to_hub=False,
         seed=42,
         label_names=['modalities'],
+        report_to='tensorboard',
     )
 
 
@@ -49,7 +50,7 @@ def evaluate(Args):
     else:
         model_path = Args.Evaluate.Model.Name
 
-    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.Evaluate.Model.CachePath, attn_implementation='flash_attention_2')
+    model = CLIPModel.from_pretrained(model_path, cache_dir=Args.Evaluate.Model.CachePath)
 
     testing_data = builder.get_eval_dataset()
     compute_metrics = builder.get_compute()
