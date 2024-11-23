@@ -4,13 +4,11 @@ import logging
 import json
 import argparse
 
-from pygments.lexer import default
-from tqdm import trange, tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
+from tqdm import tqdm
 from load_dataset import get_dataset
 
 logging.basicConfig(
-    filename='dataset/logs/output.log',
+    filename='../dataset/logs/output.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -123,13 +121,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--image_paths', help='Image path needed by model',
-                        default="dataset/logs/image_paths.jsonl")
+                        default="../dataset/logs/image_paths.jsonl")
 
     parser.add_argument('--source', help='Source directory',
-                        default="/m-beir/mbeir_images/")
+                        default="/mbeir_images/")
 
     parser.add_argument('--destination', help='Destination directory',
-                        default="m-beir/dataset/")
+                        default="/mbeir_imagesV1/")
 
     args = parser.parse_args()
 

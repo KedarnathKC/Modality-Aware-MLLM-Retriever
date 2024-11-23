@@ -1,7 +1,7 @@
 import yaml
 import re
 
-IGNORE_KEYS = ['cls_logits', 'distillation_logits', 'hidden_states', 'attentions', 'attributions', 'encoder_last_hidden_state']
+IGNORE_KEYS = []
 
 
 def represent_bool(self, data):
@@ -11,6 +11,31 @@ def represent_bool(self, data):
 
 
 yaml.add_representer(bool, represent_bool)
+
+DATASET_CAN_NUM_UPPER_BOUND = 10000000  # Maximum number of candidates per dataset
+DATASET_QUERY_NUM_UPPER_BOUND = 500000  # Maximum number of queries per dataset
+
+
+def unhash_qid(hashed_qid):
+    dataset_id = hashed_qid // DATASET_QUERY_NUM_UPPER_BOUND
+    data_within_id = hashed_qid % DATASET_QUERY_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
+def unhash_did(hashed_did):
+    dataset_id = hashed_did // DATASET_CAN_NUM_UPPER_BOUND
+    data_within_id = hashed_did % DATASET_CAN_NUM_UPPER_BOUND
+    return f"{dataset_id}:{data_within_id}"
+
+
+def hash_qid(qid):
+    dataset_id, data_within_id = map(int, qid.split(":"))
+    return dataset_id * DATASET_QUERY_NUM_UPPER_BOUND + data_within_id
+
+
+def hash_did(did):
+    dataset_id, data_within_id = map(int, did.split(":"))
+    return dataset_id * DATASET_CAN_NUM_UPPER_BOUND + data_within_id
 
 
 def save_config(output_path, Args):
@@ -41,4 +66,12 @@ def start_evaluation(trainer, testing_data):
     metrics = trainer.evaluate(testing_data, ignore_keys=IGNORE_KEYS)
     trainer.log_metrics("eval", metrics)
     trainer.save_metrics("eval", metrics)
+
+
+def start_prediction(trainer, testing_data):
+
+    outputs, _, metrics = trainer.predict(testing_data, ignore_keys=IGNORE_KEYS)
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
+    return outputs[1:]
 

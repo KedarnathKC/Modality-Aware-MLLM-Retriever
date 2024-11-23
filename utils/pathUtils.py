@@ -61,28 +61,19 @@ def get_checkpoint_path(step, Args):
     return model_path
 
 
-# def get_model_path(step, Args):
-#     root = Args.Common.Results + step + '/'
-#
-#     if Args.Distillation.Action:
-#         Model = Args.Distillation.Model
-#     elif Args.Visualization.Action:
-#         Model = Args.Visualization.Model
-#     else:
-#         Model = Args.Evaluate.Model
-#
-#     model_path = check_model_path(root, Model.Name, Args.Common.DataSet.Name, Model.Index)
-#
-#     if Args.Distillation.Action:
-#         model_path += '/' + Args.Distillation.Model.OutputPath
-#     elif Args.Visualization.Action:
-#         model_path += '/' + Args.Visualization.Model.OutputPath
-#     else:
-#         if Args.Evaluate.Model.Type == 'FineTuned':
-#             model_path += '/' + Args.FineTuning.Model.OutputPath
-#         else:
-#             model_path += '/' + Args.Distillation.StudentModel.OutputPath
-#
-#     return model_path
+def get_model_path(step, Args):
+    root = Args.Common.Results + step + '/'
+
+    if Args.Evaluate.Action:
+        Model = Args.Evaluate.Model
+    else:
+        Model = Args.Retrieval.Model
+
+    model_path = check_model_path(root, Model.Name, Args.Common.DataSet.Name, Model.Index)
+
+    if Args.Evaluate.Action:
+        model_path += '/' + Args.FineTuning.Model.OutputPath
+
+    return model_path
 
 

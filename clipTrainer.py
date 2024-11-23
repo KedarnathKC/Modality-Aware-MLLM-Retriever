@@ -1,27 +1,27 @@
-from typing import Dict, Union, Any
-
 import torch
 from torch import nn
 import torch.nn.functional as F
+import gc
 from transformers import Trainer
 
 
 class ClipTrainer(Trainer):
 
-    def __init__(self, model, configArgs, *args, **kwargs):
+    def __init__(self, model, configArgs, onlyPrediction=False, *args, **kwargs):
         super().__init__(model=model, *args, **kwargs)
         self.configArgs = configArgs
-
+        self.onlyPrediction = onlyPrediction
+        if self.onlyPrediction:
+            self.bs = self.configArgs.Evaluate.Hyperparameters.EvalBatchSize
+        else:
+            self.bs = self.configArgs.FineTuning.Hyperparameters.EvalBatchSize
         self.loss_function = nn.CrossEntropyLoss()
-        self.temperature = self.configArgs.FineTuning.Hyperparameters.Temperature
 
     def _encode_text(self, text_tensor, txt_attention_mask):
         return self.model.get_text_features(text_tensor, txt_attention_mask)
-        # return torch.rand((text_tensor.size()[0], 512), device='mps')
 
     def _encode_image(self, image_tensor):
         return self.model.get_image_features(image_tensor)
-        # return torch.rand((image_tensor.size()[0], 512), device='mps')
 
     def _fuse_embeddings(self, img_emb, txt_emb):
         fused_emb = img_emb + txt_emb
@@ -38,6 +38,35 @@ class ClipTrainer(Trainer):
         txt_emb = self._encode_text(txt_tensor, txt_attention_mask) * txt_mask.unsqueeze(-1)
         img_emb = self._encode_image(img_tensor) * img_mask.unsqueeze(-1)
         return self._fuse_embeddings(txt_emb, img_emb)  # shape: [batch_size, embed_dim]
+
+    def expand_predictions(self, logits):
+        if self.bs == logits.shape[0]:
+            return logits
+        expand_dim = self.bs - logits.shape[0]
+        expanded_logits = F.pad(logits, pad=(0, expand_dim, 0, expand_dim), mode='constant', value=-2)
+        return expanded_logits
+
+    def prediction_outputs(self, embeddings, index_mapping, inputs, logits, p_embeds, q_embeds):
+        candidate_embeddings = p_embeds
+        candidate_dids = inputs['did_list']
+        if "remaining_did_list" in inputs and len(inputs["remaining_did_list"]) > 0:
+            remaining_p_embeds = embeddings[torch.tensor(sum(index_mapping["remaining_pos_cand_list"], []))]
+
+            remaining_p_embeds = F.normalize(remaining_p_embeds, dim=-1)
+
+            candidate_embeddings = torch.vstack((candidate_embeddings, remaining_p_embeds))
+
+            candidate_dids = torch.hstack((candidate_dids, inputs['remaining_did_list']))
+
+        outputs = {
+            "predictions": self.expand_predictions(logits).unsqueeze(0),
+            "query_embeddings": q_embeds,
+            "candidate_embeddings": candidate_embeddings,
+            "query_ids": inputs['qid_list'],
+            "candidate_ids": candidate_dids
+        }
+
+        return outputs
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
 
@@ -64,21 +93,28 @@ class ClipTrainer(Trainer):
         q_embeds = F.normalize(q_embeds, dim=-1)
         p_embeds = F.normalize(p_embeds, dim=-1)
 
+        logit_scale = self.model.logit_scale.exp().to(p_embeds.device)
+
         if enable_hard_neg:
-            positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True)
-
-            query = q_embeds.unsqueeze(1)
-            negative_logits = query @ n_embeds.transpose(-2, -1)
-            negative_logits = negative_logits.squeeze(1)
-
-            # First index in last dimension are the positive samples
+            n_embeds = F.normalize(n_embeds, dim=-1)
+            positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True) * logit_scale
+            negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
-            labels = torch.zeros(len(logits), dtype=torch.long, device=query.device)
-
+            labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
+            del n_embeds
         else:
-            logits = q_embeds @ p_embeds.transpose(-2, -1)
+            logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
             labels = torch.arange(len(q_embeds), device=q_embeds.device)
 
-        loss = self.loss_function(logits / self.temperature, labels)
+            if self.onlyPrediction:
+                outputs = self.prediction_outputs(embeddings, index_mapping, inputs, logits, p_embeds, q_embeds)
+                del embeddings, inputs, logits, p_embeds, q_embeds
+                gc.collect()
+                return (torch.zeros(1), outputs) if return_outputs else torch.zeros(1)
 
-        return (loss, logits) if return_outputs else loss
+        loss = self.loss_function(logits, labels)
+
+        del embeddings, inputs, p_embeds, q_embeds
+        gc.collect()
+
+        return (loss, {"predictions": self.expand_predictions(logits).unsqueeze(0)}) if return_outputs else loss
