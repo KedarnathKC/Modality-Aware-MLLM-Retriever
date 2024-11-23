@@ -34,7 +34,7 @@ FineTuning:
     TrainBatchSize: 16
     EvalBatchSize: 32
     Epochs: 10
-    Lr: 0.00005
+    Lr: 0.00001
     WeightDecay: 0.2
     WarmUpRatio: 0.1
     Steps:
