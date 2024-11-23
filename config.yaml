@@ -33,14 +33,14 @@ FineTuning:
     UseCPU: False
     TrainBatchSize: 16
     EvalBatchSize: 32
-    Epochs: 10
+    Epochs: 5
     Lr: 0.00001
     WeightDecay: 0.2
-    WarmUpRatio: 0.1
+    WarmUpRatio: 0.05
     Steps:
-      SaveSteps: 100
+      SaveSteps: 200
       EvalSteps: 100
-      LoggingSteps: 50
+      LoggingSteps: 100
       GradientAccumulation: 1
 
 Evaluate:
@@ -58,7 +58,7 @@ Evaluate:
 Retrieval:
   Action: False
   Model:
-    Name: openai/clip-vit-base-patch16
+    Name: openai/clip-vit-large-patch14
     Index: -1
-  BatchSize: 16
+  BatchSize: 128
   Top: 10

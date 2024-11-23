@@ -11,6 +11,15 @@ domain_mapping = {
 }
 
 
+def print_task_count_details(split, ds):
+    tasks0_count = len(ds.filter(lambda x: x['query_modality'] == 'image'))
+    tasks1_count = len(ds.filter(lambda x: x['query_modality'] == 'text'))
+    print(f"{split} with {tasks0_count} text and {tasks1_count} image retrieval tasks.")
+    domain_details = ', '.join([f"{domain}({len(ds.filter(lambda x: x['qid'].startswith(f'{id}:')))})"
+                    for idx, (domain, id) in enumerate(domain_mapping.items())])
+    print(f"{split} domain details: {domain_details}")
+
+
 def get_training_data(split_perc='', domains=None, show_details=False):
 
     print(f"Loading training data for {domains}")
@@ -35,6 +44,8 @@ def get_training_data(split_perc='', domains=None, show_details=False):
         split_perc = int(split_perc)
         ds_train = ds_train.select(range(split_perc))
 
+    print_task_count_details("Training", ds_train)
+
     if show_details:
         print("Training data:")
         print(ds_train)
@@ -44,7 +55,6 @@ def get_training_data(split_perc='', domains=None, show_details=False):
 
 def get_validation_data(split_perc='', domains=None, show_details=False):
     ds_validate_tasks = []
-    if split_perc != '': split_perc = int(split_perc) // 2
 
     print(f"Loading validation data for {domains}")
 
@@ -75,6 +85,8 @@ def get_validation_data(split_perc='', domains=None, show_details=False):
     if split_perc != '':
         split_perc = int(split_perc)
         ds_validate = ds_validate.select(range(split_perc))
+
+    print_task_count_details("Validation", ds_validate)
 
     if show_details:
         print("Validation data:")

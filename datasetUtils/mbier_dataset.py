@@ -29,6 +29,7 @@ class MBEIRMainDataset(Dataset):
         self.config = config
         self.random_config = self.config.FineTuning.NegativeCandidates
         self.is_train = is_train
+        self.train_bs = self.config.FineTuning.Hyperparameters.TrainBatchSize
         self.onlyPrediction = onlyPrediction
 
         self.load_query_instruction()
@@ -113,19 +114,20 @@ class MBEIRMainDataset(Dataset):
 
     def get_random_negative_candidate_dids(self, query_dataset_id, pos_cand_list, hard_negatives):
         negative_candidate_dids = hard_negatives
-        tracker = len(negative_candidate_dids)
-        choice_dataset_ids = [k for k, v in self.candidate_det.items() if v[0] > 0]
-        while tracker < self.random_config.CandidateSize:
-            if self.random_config.IncludeCrossDomainNegatives:
-                neg_dataset_id = random.choice(choice_dataset_ids)
-            else:
-                neg_dataset_id = query_dataset_id
-            doc_id_range = self.candidate_det[neg_dataset_id]
-            neg_cand_did = neg_dataset_id + ':' + str(random.randint(doc_id_range[1], doc_id_range[2]))
-            neg_cand = self.cand_pool.get(neg_cand_did, None)
-            if neg_cand and neg_cand_did not in negative_candidate_dids and neg_cand_did not in pos_cand_list:
-                negative_candidate_dids.append(neg_cand_did)
-                tracker += 1
+        if self.random_config.CandidateSize > 0:
+            tracker = self.random_config.CandidateSize - self.train_bs + 1 - len(negative_candidate_dids)
+            choice_dataset_ids = [k for k, v in self.candidate_det.items() if v[0] > 0]
+            while tracker > 0:
+                if self.random_config.IncludeCrossDomainNegatives:
+                    neg_dataset_id = random.choice(choice_dataset_ids)
+                else:
+                    neg_dataset_id = query_dataset_id
+                doc_id_range = self.candidate_det[neg_dataset_id]
+                neg_cand_did = neg_dataset_id + ':' + str(random.randint(doc_id_range[1], doc_id_range[2]))
+                neg_cand = self.cand_pool.get(neg_cand_did, None)
+                if neg_cand and neg_cand_did not in negative_candidate_dids and neg_cand_did not in pos_cand_list:
+                    negative_candidate_dids.append(neg_cand_did)
+                    tracker -= 1
 
         return negative_candidate_dids
 

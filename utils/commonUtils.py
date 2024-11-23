@@ -73,5 +73,5 @@ def start_prediction(trainer, testing_data):
     outputs, _, metrics = trainer.predict(testing_data, ignore_keys=IGNORE_KEYS)
     trainer.log_metrics("eval", metrics)
     trainer.save_metrics("eval", metrics)
-    return outputs[1:]
+    return outputs[1:-1]
 
