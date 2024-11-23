@@ -41,10 +41,10 @@ class ClipTrainer(Trainer):
 
     def expand_predictions(self, logits):
         if self.bs == logits.shape[0]:
-            return logits
+            return logits, self.bs
         expand_dim = self.bs - logits.shape[0]
-        expanded_logits = F.pad(logits, pad=(0, expand_dim, 0, expand_dim), mode='constant', value=-2)
-        return expanded_logits
+        expanded_logits = F.pad(logits, pad=(0, expand_dim, 0, expand_dim), mode='constant', value=0)
+        return expanded_logits, logits.shape[0]
 
     def prediction_outputs(self, embeddings, index_mapping, inputs, logits, p_embeds, q_embeds):
         candidate_embeddings = p_embeds
@@ -58,12 +58,14 @@ class ClipTrainer(Trainer):
 
             candidate_dids = torch.hstack((candidate_dids, inputs['remaining_did_list']))
 
+        logits, prediction_dim = self.expand_predictions(logits)
         outputs = {
-            "predictions": self.expand_predictions(logits).unsqueeze(0),
+            "predictions": logits.unsqueeze(0),
             "query_embeddings": q_embeds,
             "candidate_embeddings": candidate_embeddings,
             "query_ids": inputs['qid_list'],
-            "candidate_ids": candidate_dids
+            "candidate_ids": candidate_dids,
+            "prediction_dim": torch.tensor([prediction_dim]).to(candidate_dids.device),
         }
 
         return outputs
@@ -96,12 +98,18 @@ class ClipTrainer(Trainer):
         logit_scale = self.model.logit_scale.exp().to(p_embeds.device)
 
         if enable_hard_neg:
+            bs = q_embeds.shape[0]
             n_embeds = F.normalize(n_embeds, dim=-1)
             positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True) * logit_scale
-            negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
+            mask = torch.eye(bs).to(n_embeds.device) == 0
+            in_batch_negs = p_embeds.unsqueeze(1).expand(-1, bs, -1)[mask].reshape(bs, bs - 1, -1)
+            in_batch_negs = in_batch_negs[:, :bs-1, :]
+            aug_negative_logits = torch.cat([n_embeds, in_batch_negs], dim=1)
+            negative_logits = (q_embeds.unsqueeze(1) * aug_negative_logits).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
             labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
-            del n_embeds
+            del n_embeds, mask, in_batch_negs, aug_negative_logits, negative_logits, positive_logit
+            gc.collect()
         else:
             logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
             labels = torch.arange(len(q_embeds), device=q_embeds.device)
@@ -117,4 +125,9 @@ class ClipTrainer(Trainer):
         del embeddings, inputs, p_embeds, q_embeds
         gc.collect()
 
-        return (loss, {"predictions": self.expand_predictions(logits).unsqueeze(0)}) if return_outputs else loss
+        if return_outputs:
+            logits, prediction_dim = self.expand_predictions(logits)
+            output = {"predictions": logits.unsqueeze(0), "prediction_dim": torch.tensor([prediction_dim]).to(logits.device)}
+            return (loss, output)
+        else:
+            return loss
