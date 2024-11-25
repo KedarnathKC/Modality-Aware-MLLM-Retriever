@@ -33,7 +33,7 @@ def prepare_json_file(image_paths):
 
         logger.info(f"Preparing image paths file")
 
-        ds_train, ds_validate, ds_candidate = get_dataset()
+        ds_train, ds_validate, ds_candidate = get_dataset(domains=['mscoco','visualnews','fashion200k'])
 
         combined = set(ds_train.filter(lambda x: x['query_img_path'] is not None)['query_img_path'])
 
@@ -124,10 +124,10 @@ if __name__ == '__main__':
                         default="../dataset/logs/image_paths.jsonl")
 
     parser.add_argument('--source', help='Source directory',
-                        default="/mbeir_images/")
+                        default="../dataset/mbeir_images/")
 
     parser.add_argument('--destination', help='Destination directory',
-                        default="/mbeir_imagesV1/")
+                        default="../dataset/mbeir_imagesV1/")
 
     args = parser.parse_args()
 

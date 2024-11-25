@@ -6,7 +6,7 @@ Common:
   DataSet:
     Name: MBIER
     QueryInstructionsPath: datasetUtils/query_instructions.tsv
-    Path: !ENV ${DATASET_PATH} # Update the dataset path here or add DATASET_PATH to environment.
+    Path: ./dataset # Update the dataset path here or add DATASET_PATH to environment.
     FilterDomains:
       - visualnews
       - fashion200k
