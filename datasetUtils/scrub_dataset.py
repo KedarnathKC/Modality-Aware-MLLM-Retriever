@@ -33,7 +33,7 @@ def prepare_json_file(image_paths):
 
         logger.info(f"Preparing image paths file")
 
-        ds_train, ds_validate, ds_candidate = get_dataset()
+        ds_train, ds_validate, ds_candidate = get_dataset(domains=['visualnews','fashion200k','mscoco'])
 
         combined = set(ds_train.filter(lambda x: x['query_img_path'] is not None)['query_img_path'])
 
