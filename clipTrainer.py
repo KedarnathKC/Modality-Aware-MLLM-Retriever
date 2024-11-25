@@ -11,6 +11,7 @@ class ClipTrainer(Trainer):
         super().__init__(model=model, *args, **kwargs)
         self.configArgs = configArgs
         self.onlyPrediction = onlyPrediction
+        self.random_config = self.configArgs.FineTuning.NegativeCandidates
         if self.onlyPrediction:
             self.bs = self.configArgs.Evaluate.Hyperparameters.EvalBatchSize
         else:
@@ -101,14 +102,15 @@ class ClipTrainer(Trainer):
             bs = q_embeds.shape[0]
             n_embeds = F.normalize(n_embeds, dim=-1)
             positive_logit = torch.sum(q_embeds * p_embeds, dim=1, keepdim=True) * logit_scale
-            mask = torch.eye(bs).to(n_embeds.device) == 0
-            in_batch_negs = p_embeds.unsqueeze(1).expand(-1, bs, -1)[mask].reshape(bs, bs - 1, -1)
-            in_batch_negs = in_batch_negs[:, :bs-1, :]
-            aug_negative_logits = torch.cat([n_embeds, in_batch_negs], dim=1)
-            negative_logits = (q_embeds.unsqueeze(1) * aug_negative_logits).sum(-1) * logit_scale
+            if not self.random_config.UseModalityNegatives:
+                mask = torch.eye(bs).to(n_embeds.device) == 0
+                in_batch_negs = p_embeds.unsqueeze(1).expand(-1, bs, -1)[mask].reshape(bs, bs - 1, -1)
+                in_batch_negs = in_batch_negs[:, :bs-1, :]
+                n_embeds = torch.cat([n_embeds, in_batch_negs], dim=1)
+            negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
             labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
-            del n_embeds, mask, in_batch_negs, aug_negative_logits, negative_logits, positive_logit
+            del n_embeds, mask, in_batch_negs, negative_logits, positive_logit
             gc.collect()
         else:
             logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
@@ -128,6 +130,7 @@ class ClipTrainer(Trainer):
         if return_outputs:
             logits, prediction_dim = self.expand_predictions(logits)
             output = {"predictions": logits.unsqueeze(0), "prediction_dim": torch.tensor([prediction_dim]).to(logits.device)}
+            del logits, prediction_dim
             return (loss, output)
         else:
             return loss
