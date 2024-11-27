@@ -66,12 +66,14 @@ def get_model_path(step, Args):
 
     if Args.Evaluate.Action:
         Model = Args.Evaluate.Model
+    elif Args.FineTuning.Action:
+        Model = Args.FineTuning.Model
     else:
         Model = Args.Retrieval.Model
 
     model_path = check_model_path(root, Model.Name, Args.Common.DataSet.Name, Model.Index)
 
-    if Args.Evaluate.Action:
+    if Args.Evaluate.Action or Args.FineTuning.Action:
         model_path += '/' + Args.FineTuning.Model.OutputPath
 
     return model_path

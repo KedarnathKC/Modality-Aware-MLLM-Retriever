@@ -1,6 +1,6 @@
 from transformers import TrainingArguments, CLIPModel
 from clipTrainer import ClipTrainer
-from utils.pathUtils import prepare_output_path, get_checkpoint_path
+from utils.pathUtils import prepare_output_path, get_checkpoint_path, get_model_path
 from datasetUtils.prepare_dataset import Builder
 from utils.commonUtils import start_training
 from transformers.training_args import OptimizerNames
@@ -53,6 +53,8 @@ def train(Args):
 
     if Args.FineTuning.Model.LoadCheckPoint:
         model_path = get_checkpoint_path('FineTuned', Args)
+    elif Args.FineTuning.Model.UseLocal:
+        model_path = get_model_path('FineTuned', Args)
     else:
         model_path = Args.FineTuning.Model.Name
 
