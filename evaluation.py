@@ -1,6 +1,6 @@
 from transformers import TrainingArguments, CLIPModel
 from clipTrainer import ClipTrainer
-from utils.pathUtils import prepare_output_path, get_model_path
+from utils.pathUtils import prepare_output_path, get_model_path, get_checkpoint_path
 from utils.commonUtils import start_prediction, save_config
 from datasetUtils.prepare_dataset import Builder
 import numpy as np
@@ -47,6 +47,8 @@ def evaluate(Args):
 
     if Args.Evaluate.Model.UseLocal:
         model_path = get_model_path('FineTuned', Args)
+    elif Args.Evaluate.Model.LoadCheckPoint:
+        model_path = get_checkpoint_path('FineTuned', Args)
     else:
         model_path = Args.Evaluate.Model.Name
 
