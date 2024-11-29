@@ -40,12 +40,24 @@ class MBEIRMainDataset(Dataset):
         if is_train:
             self.ds_train = get_training_data(DataSet.Train, domains=domains)
             print("Training data loaded.")
+            if self.random_config.UseModalityNegatives:
+                self.load_modality_negatives(self.random_config.ModalityNegativesPath)
         else:
             self.ds_validate = get_validation_data(DataSet.Test, domains=domains)
             print("Validation data loaded.")
 
         self._load_cand_pool_as_dict(DataSet.Candidate, domains=domains)
         print(f"{'Training' if self.is_train else 'Validation'} candidates loaded.")
+
+
+    def load_modality_negatives(self, path):
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                modality_negatives = json.load(f)
+            self.modality_negatives = modality_negatives
+        else:
+            raise Exception(f"Missing modality negatives file : {path}")
+
 
     def load_query_instruction(self):
         prompts_dict = {}
@@ -112,10 +124,13 @@ class MBEIRMainDataset(Dataset):
         else:
             return len(self.ds_validate)
 
-    def get_random_negative_candidate_dids(self, query_dataset_id, pos_cand_list, hard_negatives):
+    def get_random_negative_candidate_dids(self, query_dataset_id, pos_cand_list, hard_negatives, augment=True):
         negative_candidate_dids = hard_negatives
         if self.random_config.CandidateSize > 0:
-            tracker = self.random_config.CandidateSize - self.train_bs + 1 - len(negative_candidate_dids)
+            if augment:
+                tracker = self.random_config.CandidateSize - self.train_bs + 1 - len(negative_candidate_dids)
+            else:
+                tracker = self.random_config.CandidateSize
             choice_dataset_ids = [k for k, v in self.candidate_det.items() if v[0] > 0]
             while tracker > 0:
                 if self.random_config.IncludeCrossDomainNegatives:
@@ -131,13 +146,30 @@ class MBEIRMainDataset(Dataset):
 
         return negative_candidate_dids
 
+    def get_modality_negatives(self, qid, pos_cand_list):
+        negative_candidate_dids = []
+        try:
+            negative_candidates = [neg_did for neg_did in self.modality_negatives[qid] if neg_did not in pos_cand_list]
+            available_negatives_len = len(negative_candidates)
+            if available_negatives_len < self.random_config.CandidateSize:
+                remaining = self.random_config.CandidateSize - available_negatives_len
+                additional_negatives = self.get_random_negative_candidate_dids(
+                    qid.split(":")[0], pos_cand_list, [], augment=False)
+                negative_candidates += random.choices(additional_negatives, k=remaining)
+        except Exception:
+            negative_candidates = self.get_random_negative_candidate_dids(
+                qid.split(":")[0], pos_cand_list, [], augment=False)
+
+        if self.random_config.CandidateSize > 0:
+            negative_candidate_dids = random.choices(negative_candidates, k=self.random_config.CandidateSize)
+
+        return negative_candidate_dids
+
+
     def get_negative_candidate_dids(self, qid, pos_cand_list, hard_negatives):
 
         if self.random_config.UseModalityNegatives:
-            ## TODO::
-            ## 1. For the qid, get negatives with incorrect but high ranked modality
-            ## 2. For the qid, get negatives with correct but lower ranked than the threshold modality
-            pass
+           return self.get_modality_negatives(qid, pos_cand_list)
         else:
             return self.get_random_negative_candidate_dids(qid.split(":")[0], pos_cand_list, hard_negatives)
 
