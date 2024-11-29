@@ -18,10 +18,10 @@ Common:
 FineTuning:
   Action: False
   NegativeCandidates:
-    UseModalityNegatives: False
+    UseModalityNegatives: True
+    ModalityNegativesPath: datasetUtils/dummy.json # file path
     IncludeCrossDomainNegatives: False
-    CandidateSize: 50
-    Threshold: 45
+    CandidateSize: 3
   Model:
     UseLocal: False
     Name: openai/clip-vit-large-patch14

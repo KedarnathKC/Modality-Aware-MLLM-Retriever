@@ -107,10 +107,11 @@ class ClipTrainer(Trainer):
                 in_batch_negs = p_embeds.unsqueeze(1).expand(-1, bs, -1)[mask].reshape(bs, bs - 1, -1)
                 in_batch_negs = in_batch_negs[:, :bs-1, :]
                 n_embeds = torch.cat([n_embeds, in_batch_negs], dim=1)
+                del mask, in_batch_negs
             negative_logits = (q_embeds.unsqueeze(1) * n_embeds).sum(-1) * logit_scale
             logits = torch.cat([positive_logit, negative_logits], dim=1)
             labels = torch.zeros(len(logits), dtype=torch.long, device=q_embeds.device)
-            del n_embeds, mask, in_batch_negs, negative_logits, positive_logit
+            del n_embeds, negative_logits, positive_logit
             gc.collect()
         else:
             logits = q_embeds @ p_embeds.transpose(-2, -1) * logit_scale
