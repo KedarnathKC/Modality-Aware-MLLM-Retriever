@@ -143,16 +143,27 @@ def get_test_data(domains=None, show_details=False):
         }
 
         ds_test_tasks.append(load_dataset("TIGER-Lab/M-BEIR",
-                                              cache_dir='dataset/test',
-                                              data_files=data_files_validate_task_n,
-                                              name='query', split=f'test'))
+                                          cache_dir='dataset/test',
+                                          data_files=data_files_validate_task_n,
+                                          name='query', split=f'test'))
     ds_test = concatenate_datasets(ds_test_tasks)
+
+    # ds_test_part0 = ds_test.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'image').select(range(5))
+    # ds_test_part1 = ds_test.filter(lambda x: x['qid'].startswith("0:") and x['query_modality'] == 'text').select(range(7))
+    # ds_test_part2 = ds_test.filter(lambda x: x['qid'].startswith("1:") and x['query_modality'] == 'image').select(range(8))
+    # ds_test_part3 = ds_test.filter(lambda x: x['qid'].startswith("9:") and x['query_modality'] == 'text').select(range(6))
+    # ds_test = concatenate_datasets([ds_test_part0, ds_test_part1, ds_test_part2, ds_test_part3])
 
     print_task_count_details("Test", ds_test)
 
     if show_details:
         print("Testing data:")
         print(ds_test)
+
+    return ds_test
+
+
+def get_test_candidate_dataset(domains=None, show_details=False):
 
     features = Features({
         "did": Value('string'),
@@ -162,7 +173,7 @@ def get_test_data(domains=None, show_details=False):
         'src_content': Value('string'),
     })
 
-    ds_test_candidates = load_dataset("TIGER-Lab/M-BEIR",
+    ds_test_candidate = load_dataset("TIGER-Lab/M-BEIR",
                                       cache_dir='dataset/cand',
                                       features=features,
                                       data_files={'cand_pool': [f'cand_pool/global/*test*.jsonl']},
@@ -174,13 +185,25 @@ def get_test_data(domains=None, show_details=False):
     else:
         dataset_ids = ['0', '1', '9']
 
-    ds_test_candidates = ds_test_candidates.filter(lambda candidate: candidate['did'].split(':')[0] in dataset_ids)
+    ds_test_candidate = ds_test_candidate.filter(lambda candidate: candidate['did'].split(':')[0] in dataset_ids)
+
+    # ds_test_candidate = ds_test_candidate.select(range(12))
 
     if show_details:
         print("Test candidate data:")
-        print(ds_test_candidates)
+        print(ds_test_candidate)
 
-    return ds_test, ds_test_candidates
+    return ds_test_candidate
+
+
+def get_test_dataset(domains=None, show_details=False):
+
+    ds_test = get_test_data(domains=domains, show_details=show_details)
+
+    ds_test_candidate = get_test_candidate_dataset(domains=domains, show_details=show_details)
+
+    return ds_test, ds_test_candidate
+
 
 def get_dataset(train_perc='', valid_perc='', cand_perc='', domains=None, show_details=False):
 
@@ -243,6 +266,6 @@ if __name__ == '__main__':
 
     validate(ds_train, ds_validate, ds_candidate)
 
-    ds_test, ds_test_candidate = get_test_data(domains=Args.Common.DataSet.FilterDomains, show_details=True)
+    ds_test, ds_test_candidate = get_test_dataset(domains=Args.Common.DataSet.FilterDomains, show_details=True)
 
     validate_testing(ds_test, ds_test_candidate)

@@ -18,6 +18,7 @@ def get_evaluation_args(output_path, hyperparameters):
         do_predict=True,
         push_to_hub=False,
         seed=42,
+        eval_accumulation_steps=50,
         label_names=['modalities'],
         report_to='tensorboard',
     )
@@ -39,8 +40,6 @@ def save_embeddings(output_path, embed, embeddings, ids):
 
 def evaluate(Args):
 
-    builder = Builder(Args, onlyPrediction=True)
-
     output_path = prepare_output_path('Evaluation', Args)
 
     eval_args = get_evaluation_args(output_path, Args.Evaluate.Hyperparameters)
@@ -54,9 +53,18 @@ def evaluate(Args):
 
     model = CLIPModel.from_pretrained(model_path, cache_dir=Args.Evaluate.Model.CachePath)
 
+    if Args.Evaluate.UseTestData:
+        prediction_fn = testing_predictions
+    else:
+        prediction_fn = validation_predictions
+
+    prediction_fn(Args, eval_args, model, output_path)
+
+
+def validation_predictions(Args, eval_args, model, output_path):
+    builder = Builder(Args, onlyPrediction=True)
     testing_data = builder.get_eval_dataset()
     compute_metrics = builder.get_compute()
-
     evaluation_trainer = ClipTrainer(
         model=model,
         configArgs=Args,
@@ -65,14 +73,49 @@ def evaluate(Args):
         compute_metrics=compute_metrics,
         data_collator=builder.get_collate_fn()
     )
+    save_config(output_path + 'evaluation/config.yaml', Args)
+    query_embeddings, candidate_embeddings, query_ids, candidate_ids = start_prediction(evaluation_trainer,
+                                                                                        testing_data)
+    save_embeddings(output_path, 'query', query_embeddings, query_ids)
+    save_embeddings(output_path, 'candidate', candidate_embeddings, candidate_ids)
 
+
+def testing_predictions(Args, eval_args, model, output_path):
+    builder = Builder(Args, onlyPrediction=True)
+    testing_data = builder.get_test_dataset()
+    compute_metrics = builder.get_compute()
+    test_trainer = ClipTrainer(
+        model=model,
+        configArgs=Args,
+        onlyPrediction=True,
+        args=eval_args,
+        compute_metrics=compute_metrics,
+        data_collator=builder.get_test_collate_fn()
+    )
     save_config(output_path + 'evaluation/config.yaml', Args)
 
-    query_embeddings, candidate_embeddings, query_ids, candidate_ids = start_prediction(evaluation_trainer, testing_data)
+    query_embeddings, query_ids = start_prediction(test_trainer, testing_data)
 
     save_embeddings(output_path, 'query', query_embeddings, query_ids)
 
+    eval_args.label_names = None
+    candidate_trainer = ClipTrainer(
+        model=model,
+        configArgs=Args,
+        onlyPrediction=True,
+        testPrediction=True,
+        args=eval_args,
+        data_collator=builder.get_test_collate_fn()
+    )
+
+    candidate_data = builder.get_candidate_dataset()
+
+    (candidate_embeddings, candidate_ids), _, _ = candidate_trainer.predict(candidate_data)
+
     save_embeddings(output_path, 'candidate', candidate_embeddings, candidate_ids)
+
+
+
 
 
 

@@ -5,7 +5,7 @@ import json
 import argparse
 
 from tqdm import tqdm
-from load_dataset import get_dataset, get_test_data
+from load_dataset import get_dataset, get_test_dataset
 
 logging.basicConfig(
     filename='../dataset/logs/output.log',
@@ -123,7 +123,7 @@ def prepare_json_file_test(test_image_paths):
 
         logger.info(f"Preparing test image paths file")
 
-        ds_test, ds_test_candidate = get_test_data(domains=['mscoco', 'visualnews', 'fashion200k'])
+        ds_test, ds_test_candidate = get_test_dataset(domains=['mscoco', 'visualnews', 'fashion200k'])
 
         combined = set(ds_test.filter(lambda x: x['query_img_path'] is not None)['query_img_path'])
 
