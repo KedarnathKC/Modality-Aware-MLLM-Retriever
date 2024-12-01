@@ -3,7 +3,7 @@ import numpy as np
 import gc
 import torch.nn.functional as F
 from transformers import CLIPProcessor
-from datasetUtils.mbier_dataset import MBEIRMainDataset
+from datasetUtils.mbier_dataset import MBEIRMainDataset, MBEIRMainDatasetForTest, MBEIRMainDatasetForCandidate
 
 
 def _get_padded_text_with_mask(txt):
@@ -40,6 +40,12 @@ class Builder:
 
     def get_eval_dataset(self):
         return MBEIRMainDataset(self.config, is_train=False, onlyPrediction=self.onlyPrediction)
+
+    def get_test_dataset(self):
+        return MBEIRMainDatasetForTest(self.config)
+
+    def get_candidate_dataset(self):
+        return MBEIRMainDatasetForCandidate(self.config)
 
     def get_collate_fn(self):
 
@@ -132,6 +138,83 @@ class Builder:
 
             gc.collect()
 
+            return processed_batch
+
+        return mbeir_collator
+
+    def get_test_collate_fn(self):
+
+        Model = self.config.Evaluate.Model
+        feature_processor = CLIPProcessor.from_pretrained(Model.Name, cache_dir=Model.CachePath)
+
+        def mbeir_collator(batch):
+            txt_list, txt_mask_list, img_list, img_mask_list = [], [], [], []
+            index_mapping = {}
+            instance_keys = []
+            if "query" in batch[0]:
+                index_mapping.update({"query": [[] for _ in range(len(batch))]})
+                instance_keys = ["query"]
+
+            if "pos_cand" in batch[0]:
+                index_mapping.update({"pos_cand": [[] for _ in range(len(batch))]})
+                instance_keys.extend(["pos_cand"])
+
+            qid_list, did_list = [], []
+            for instance in batch:
+                qid = instance.pop("qid", None)
+                did = instance.pop("did", None)
+                if qid is not None:
+                    qid_list.append(qid)
+                if did is not None:
+                    did_list.append(did)
+
+            counter = 0
+            for inst_idx, instance in enumerate(batch):
+                for instance_key in instance_keys:
+                    items = [instance[instance_key]]
+                    for item in items:
+                        txt = item["txt"]
+                        img = item["img"]
+
+                        index_mapping[instance_key][inst_idx].append(counter)  # Track current index
+                        counter += 1
+                        padded_txt, txt_mask = _get_padded_text_with_mask(txt)
+                        padded_img, img_mask = _get_padded_image_with_mask(img)
+                        txt_list.append(padded_txt)
+                        img_list.append(padded_img)
+                        txt_mask_list.append(txt_mask)
+                        img_mask_list.append(img_mask)
+
+            tokenized_text = feature_processor(text=txt_list, padding=True, truncation=True, return_tensors='pt')
+
+            txt_batched = tokenized_text['input_ids']
+            txt_attention_mask_batched = tokenized_text['attention_mask']
+
+            processed_batch = {
+                "txt_batched": txt_batched,
+                "txt_attention_mask_batched": txt_attention_mask_batched,
+                "image_batched": torch.stack(img_list, dim=0),
+                "txt_mask_batched": torch.tensor(txt_mask_list, dtype=torch.long),
+                "image_mask_batched": torch.tensor(img_mask_list, dtype=torch.long),
+                "index_mapping": index_mapping,
+            }
+
+            del tokenized_text, txt_batched, txt_attention_mask_batched, img_list, txt_mask_list, img_mask_list, index_mapping
+            if len(qid_list) > 0:
+                processed_batch.update({"qid_list": torch.tensor(qid_list)})
+                if "modality" in batch[0]:
+                    modalities = torch.tensor([bt["modality"] for bt in batch])
+                    if modalities.shape[0] < self.bs:
+                        expand_dim = self.bs - modalities.shape[0]
+                        modalities = F.pad(modalities, pad=(0, expand_dim), mode='constant', value=-1)
+                    processed_batch['modalities'] = modalities.unsqueeze(0)
+                    del modalities
+
+            if len(did_list) > 0:
+                processed_batch.update({"did_list": torch.tensor(did_list)})
+
+            processed_batch['return_loss'] = True
+            gc.collect()
             return processed_batch
 
         return mbeir_collator

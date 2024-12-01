@@ -7,10 +7,11 @@ from transformers import Trainer
 
 class ClipTrainer(Trainer):
 
-    def __init__(self, model, configArgs, onlyPrediction=False, *args, **kwargs):
+    def __init__(self, model, configArgs, onlyPrediction=False, testPrediction=False, *args, **kwargs):
         super().__init__(model=model, *args, **kwargs)
         self.configArgs = configArgs
         self.onlyPrediction = onlyPrediction
+        self.testPrediction = testPrediction
         self.random_config = self.configArgs.FineTuning.NegativeCandidates
         if self.onlyPrediction:
             self.bs = self.configArgs.Evaluate.Hyperparameters.EvalBatchSize
@@ -48,26 +49,36 @@ class ClipTrainer(Trainer):
         return expanded_logits, logits.shape[0]
 
     def prediction_outputs(self, embeddings, index_mapping, inputs, logits, p_embeds, q_embeds):
-        candidate_embeddings = p_embeds
-        candidate_dids = inputs['did_list']
-        if "remaining_did_list" in inputs and len(inputs["remaining_did_list"]) > 0:
-            remaining_p_embeds = embeddings[torch.tensor(sum(index_mapping["remaining_pos_cand_list"], []))]
-
-            remaining_p_embeds = F.normalize(remaining_p_embeds, dim=-1)
-
-            candidate_embeddings = torch.vstack((candidate_embeddings, remaining_p_embeds))
-
-            candidate_dids = torch.hstack((candidate_dids, inputs['remaining_did_list']))
 
         logits, prediction_dim = self.expand_predictions(logits)
-        outputs = {
-            "predictions": logits.unsqueeze(0),
-            "query_embeddings": q_embeds,
-            "candidate_embeddings": candidate_embeddings,
-            "query_ids": inputs['qid_list'],
-            "candidate_ids": candidate_dids,
-            "prediction_dim": torch.tensor([prediction_dim]).to(candidate_dids.device),
-        }
+
+        if 'did_list' in inputs:
+            candidate_embeddings = p_embeds
+            candidate_dids = inputs['did_list']
+            if "remaining_did_list" in inputs and len(inputs["remaining_did_list"]) > 0:
+                remaining_p_embeds = embeddings[torch.tensor(sum(index_mapping["remaining_pos_cand_list"], []))]
+
+                remaining_p_embeds = F.normalize(remaining_p_embeds, dim=-1)
+
+                candidate_embeddings = torch.vstack((candidate_embeddings, remaining_p_embeds))
+
+                candidate_dids = torch.hstack((candidate_dids, inputs['remaining_did_list']))
+
+            outputs = {
+                "predictions": logits.unsqueeze(0),
+                "query_embeddings": q_embeds,
+                "candidate_embeddings": candidate_embeddings,
+                "query_ids": inputs['qid_list'],
+                "candidate_ids": candidate_dids,
+                "prediction_dim": torch.tensor([prediction_dim]).to(logits.device),
+            }
+        else:
+            outputs = {
+                "predictions": logits.unsqueeze(0),
+                "query_embeddings": q_embeds,
+                "query_ids": inputs['qid_list'],
+                "prediction_dim": torch.tensor([prediction_dim]).to(logits.device),
+            }
 
         return outputs
 
@@ -87,7 +98,19 @@ class ClipTrainer(Trainer):
 
         #Extract embeddings
         q_embeds = embeddings[torch.tensor(index_mapping["query"]).flatten()]  # shape: [bs, embed_dim]
+
+        if self.testPrediction:
+            ids = inputs['qid_list'] if 'qid_list' in inputs else inputs['did_list']
+            outputs = {
+                "query_embeddings": q_embeds,
+                "query_ids": ids,
+            }
+            del q_embeds, embeddings, inputs
+            gc.collect()
+            return (torch.zeros(1), outputs) if return_outputs else torch.zeros(1)
+
         p_embeds = embeddings[torch.tensor(index_mapping["pos_cand"]).flatten()]  # shape: [bs, embed_dim]
+
         n_embeds = None
         if enable_hard_neg:
             n_embeds = embeddings[torch.tensor(index_mapping["neg_cand_list"])]  # [bs, neg_num, embed_dim]

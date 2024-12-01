@@ -46,6 +46,7 @@ FineTuning:
 
 Evaluate:
   Action: False
+  UseTestData: True
   Model:
     UseLocal: False
     Name: openai/clip-vit-large-patch14 # Name of the model
@@ -61,5 +62,5 @@ Retrieval:
   Model:
     Name: openai/clip-vit-large-patch14
     Index: -1
-  BatchSize: 128
+  BatchSize: 512
   Top: 10
