@@ -1,5 +1,9 @@
 # Modality Aware MLLM Retriever
 
+### Retrieval  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;    Inference
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1y8u6ytg0ArtWmYFgNiNe5so_pcgNjXvp#scrollTo=wUeESVnqXSdI) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ykamoji/Modality-Aware-MLLM-Retriever/blob/main/inference.ipynb)
+
+
 ### Requirements
 ```angular2html
 torch==2.2.0
@@ -76,4 +80,3 @@ python3 main.py
     │    │    │    │    │    ├── local
     │    │    │    │    │    ├── embeddings
     │    │    │    │    │    ├── <DataSet>.index
-
