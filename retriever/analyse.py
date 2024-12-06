@@ -101,6 +101,7 @@ def score_results(Args):
     print(f"Running pytrac evaluations.")
     results = {}
     for task in ['0', '3']:
+        results[task_mapping[task]] = {}
         for dataset_id in ['0', '1', '9']:
             subset_qrels = {}
             subset_run_qrels = {}
@@ -116,7 +117,7 @@ def score_results(Args):
                 scores["NDCG@10"] = scores.pop("ndcg_cut_10")
                 scores["Recall@5"] = scores.pop("recall_5")
                 scores["Recall@10"] = scores.pop("recall_10")
-                results[task_mapping[task]] = {dataset_mapping[dataset_id]: scores}
+                results[task_mapping[task]][dataset_mapping[dataset_id]] = scores
 
     print(f"Completed pytrac evaluations.")
     print(json.dumps(results, indent=2))

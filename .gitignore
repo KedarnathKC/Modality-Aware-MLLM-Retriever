@@ -2,3 +2,6 @@
 \MLLM.egg-info
 ._dataset
 \transformers_cache
+\Results
+\model
+\cache
