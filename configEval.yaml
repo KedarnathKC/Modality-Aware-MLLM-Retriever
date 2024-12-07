@@ -1,0 +1,66 @@
+Common:
+  Results: Results/
+  Metrics:
+    Name: R@5, R@10, NDCG@10
+    CachePath: metrics/
+  DataSet:
+    Name: MBIER
+    QueryInstructionsPath: datasetUtils/query_instructions.tsv
+    Path: /work/pi_pgrabowicz_umass_edu/kchimmad/cs646/Modality-Aware-MMLM-Retriever/dataset # Update the dataset path here or add DATASET_PATH to environment.
+    FilterDomains:
+      - visualnews
+      - fashion200k
+      - mscoco
+    Train: '' # Set <>% or <> exact number of batches to train
+    Test: '' # Set <>% or <> exact number of batches to test
+    Candidate: '' # Set <>% or <> exact number of batches for candidate
+
+FineTuning:
+  Action: False
+  NegativeCandidates:
+    UseModalityNegatives: True
+    ModalityNegativesPath: HardNegatives/hardNegatives.json # file path
+    IncludeCrossDomainNegatives: False
+    CandidateSize: 3
+  Model:
+    UseLocal: True
+    Name: openai/clip-vit-large-patch14
+    CachePath : model/
+    OutputPath: tuned-model/
+    Index: -1
+    LoadCheckPoint: False
+    CheckPointIndex: -1
+  Hyperparameters:
+    UseCPU: False
+    TrainBatchSize: 32
+    EvalBatchSize: 1024
+    Epochs: 3
+    Lr: 0.00001
+    WeightDecay: 0.2
+    WarmUpRatio: 0.02
+    Steps:
+      SaveSteps: 5000
+      EvalSteps: 5000
+      LoggingSteps: 100
+      GradientAccumulation: 1
+
+Evaluate:
+  Action: False
+  UseTestData: False
+  Model:
+    UseLocal: True
+    Name: openai/clip-vit-large-patch14 # Name of the model
+    CachePath: model/
+    Index: 3
+    LoadCheckPoint: False
+    CheckPointIndex: -1
+  Hyperparameters:
+     EvalBatchSize: 1024
+
+Retrieval:
+  Action: True
+  Model:
+    Name: openai/clip-vit-large-patch14
+    Index: 6 
+  BatchSize: 128
+  Top: 10

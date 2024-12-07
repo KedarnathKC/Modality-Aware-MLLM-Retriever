@@ -1,7 +1,9 @@
+\cache
+\HardNegatives
+\model
+\Results
+\ResultsHFModel
 \dataset
 \MLLM.egg-info
 ._dataset
 \transformers_cache
-\Results
-\model
-\cache

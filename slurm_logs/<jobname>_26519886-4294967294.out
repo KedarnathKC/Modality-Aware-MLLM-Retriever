@@ -1,0 +1,40 @@
+gpu022
+Loading validation data for ['visualnews', 'fashion200k', 'mscoco']
+Validation with 29860 text and 46561 image retrieval tasks.
+Validation domain details: visualnews(39996), fashion200k(6606), mscoco(29819)
+Validation data loaded.
+Validation candidates loaded.
+Traceback (most recent call last):
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/mainEval.py", line 30, in <module>
+    start('configEval.yaml')
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/mainEval.py", line 21, in start
+    evaluate(Args)
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/evaluation.py", line 61, in evaluate
+    prediction_fn(Args, eval_args, model, output_path)
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/evaluation.py", line 77, in validation_predictions
+    query_embeddings, candidate_embeddings, query_ids, candidate_ids = start_prediction(evaluation_trainer,
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/utils/commonUtils.py", line 73, in start_prediction
+    outputs, _, metrics = trainer.predict(testing_data, ignore_keys=IGNORE_KEYS)
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/transformers/trainer.py", line 4053, in predict
+    output = eval_loop(
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/transformers/trainer.py", line 4159, in evaluation_loop
+    for step, inputs in enumerate(dataloader):
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/accelerate/data_loader.py", line 552, in __iter__
+    current_batch = next(dataloader_iter)
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 701, in __next__
+    data = self._next_data()
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 757, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/datasetUtils/mbier_dataset.py", line 238, in __getitem__
+    pos_cand = self._prepare_data_dict(
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/datasetUtils/mbier_dataset.py", line 198, in _prepare_data_dict
+    img = self._load_and_preprocess_image(img_path)
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/datasetUtils/mbier_dataset.py", line 193, in _load_and_preprocess_image
+    image = Image.open(self.config.Common.DataSet.Path + '/' + query_img_path).convert("RGB")
+  File "/home/kchimmad_umass_edu/.conda/envs/IR646/lib/python3.10/site-packages/PIL/Image.py", line 3469, in open
+    fp = builtins.open(filename, "rb")
+FileNotFoundError: [Errno 2] No such file or directory: '/work/pi_pgrabowicz_umass_edu/kchimmad/mbeir_images/mscoco_images/val2014/COCO_val2014_000000023879.jpg'

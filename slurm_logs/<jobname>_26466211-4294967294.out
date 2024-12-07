@@ -1,0 +1,7 @@
+gpu023
+Traceback (most recent call last):
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/main.py", line 4, in <module>
+    from retriever.indexer import create_index
+  File "/work/pi_pgrabowicz_umass_edu/kchimmad/Modality-Aware-MLLM-Retriever/retriever/indexer.py", line 3, in <module>
+    import faiss
+ModuleNotFoundError: No module named 'faiss'
